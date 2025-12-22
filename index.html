@@ -31,7 +31,7 @@
     .view{display:none}
     .view.active{display:block}
 
-    /* ✅ NEW: centered brand (no bars) */
+    /* Centered brand */
     .brand-center{
       display:flex;
       flex-direction:column;
@@ -60,7 +60,7 @@
       margin-top:-4px;
     }
 
-    /* ✅ Buttons = Pink */
+    /* Buttons = Pink */
     .btn{
       border:none;
       border-radius: 14px;
@@ -76,8 +76,6 @@
     }
     .btn:active{transform: translateY(1px)}
     .btn.small{padding:9px 11px; font-size:13px}
-
-    /* Danger stays red */
     .btn.danger{
       background: rgba(239,68,68,.92);
       color:#fff;
@@ -147,10 +145,14 @@
       user-select:none;
       text-align:center;
       transition: transform .08s ease, background .2s ease;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
     }
     .home-btn:hover{transform: translateY(-2px); background: rgba(0,0,0,.24)}
-    .home-btn .emoji{font-size:34px}
-    .home-btn b{display:block; margin-top:10px; font-size:14px; letter-spacing:.3px; color: var(--pink)}
+    .home-btn b{font-size:14px; letter-spacing:.3px; color: var(--pink); margin-top:4px}
     .badge{
       position:absolute;
       top:10px; right:10px;
@@ -163,6 +165,20 @@
       font-size:12px;
       color:#fff;
       text-align:center;
+    }
+
+    /* SVG icons */
+    .ico{
+      width:42px;
+      height:42px;
+      display:block;
+    }
+    .ico.small{
+      width:18px;
+      height:18px;
+    }
+    .ico path, .ico circle, .ico rect, .ico line, .ico polyline{
+      stroke: var(--pink);
     }
 
     /* Lists */
@@ -226,7 +242,6 @@
       border-color: rgba(239,68,68,.55);
       color:#fff;
     }
-
     .empty{padding: 22px 16px; color: var(--muted); text-align:center; font-size:13px}
 
     /* Modal */
@@ -324,9 +339,9 @@
   </div>
 
 <script>
-/* Books By Siana - v5 */
+/* Books By Siana - v6 (SVG icons in buttons) */
 
-const STORAGE_KEY = "bbs.books.v5";
+const STORAGE_KEY = "bbs.books.v6";
 const state = loadState();
 let currentRoute = "home";
 let currentModalBookId = null;
@@ -354,11 +369,45 @@ function toAuthorsDisplay(authors){
   if(!authors || !authors.length) return "Auteur inconnu";
   return authors.join(", ");
 }
-function normalizeThemes(input){
-  return String(input ?? "").split(/[,;|]/g).map(s => s.trim()).filter(Boolean);
-}
-function formatIcon(book){ return book.format === "ebook" ? "📘" : "🎀"; }
 function formatFormatLabel(book){ return book.format === "ebook" ? "Ebook" : "Wishlist"; }
+function formatIconFallback(book){ return book.format === "ebook" ? "📱" : "❤"; }
+
+/* ===== SVG ICONS (stroke = pink via CSS) ===== */
+function svgReader(cls=""){
+  return `
+    <svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="7" y="2.8" width="10" height="18.4" rx="2.2"></rect>
+      <line x1="9" y1="6" x2="15" y2="6"></line>
+      <circle cx="12" cy="18" r="0.9" fill="none"></circle>
+    </svg>
+  `;
+}
+function svgHeart(cls=""){
+  return `
+    <svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M20.4 4.9c-1.6-1.7-4.2-1.7-5.8 0L12 7.5 9.4 4.9c-1.6-1.7-4.2-1.7-5.8 0-1.8 1.9-1.7 4.9.2 6.7L12 20l8.2-8.4c1.9-1.8 2-4.8.2-6.7z"></path>
+    </svg>
+  `;
+}
+function svgOpenBook(cls=""){
+  return `
+    <svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 19c-2.2-1.5-5.2-2.2-8-2V6c2.8-.2 5.8.6 8 2"></path>
+      <path d="M12 19c2.2-1.5 5.2-2.2 8-2V6c-2.8-.2-5.8.6-8 2"></path>
+      <line x1="12" y1="8" x2="12" y2="19"></line>
+    </svg>
+  `;
+}
+function svgClosedBook(cls=""){
+  return `
+    <svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M7 3h10a2 2 0 0 1 2 2v15a1.5 1.5 0 0 1-1.5 1.5H8.5A1.5 1.5 0 0 1 7 20V3z"></path>
+      <line x1="9" y1="7" x2="15" y2="7"></line>
+      <line x1="9" y1="11" x2="15" y2="11"></line>
+      <line x1="7" y1="20" x2="19" y2="20"></line>
+    </svg>
+  `;
+}
 
 /* ===== routing ===== */
 function show(route){
@@ -407,27 +456,31 @@ function renderHome(){
       <div class="home-grid">
         <div class="home-btn" id="goEbooks">
           <div class="badge">${s.ebooks}</div>
-          <div class="emoji">📘</div>
+          ${svgReader("")}
           <b>Ebooks</b>
         </div>
+
         <div class="home-btn" id="goWishlist">
           <div class="badge">${s.wishlist}</div>
-          <div class="emoji">🎀</div>
+          ${svgHeart("")}
           <b>Wishlist</b>
         </div>
+
         <div class="home-btn" id="goPAL">
           <div class="badge">${s.pal}</div>
-          <div class="emoji">📚</div>
+          ${svgOpenBook("")}
           <b>PAL</b>
         </div>
+
         <div class="home-btn" id="goRead">
           <div class="badge">${s.read}</div>
-          <div class="emoji">✅</div>
+          ${svgClosedBook("")}
           <b>Livres Lus</b>
         </div>
+
         <div class="home-btn" id="goAdd" style="grid-column: 1 / -1;">
           <div class="badge">+</div>
-          <div class="emoji">➕</div>
+          <div style="font-size:34px; font-weight:1000; color: var(--pink); line-height:1">+</div>
           <b>Ajouter un livre</b>
         </div>
       </div>
@@ -451,13 +504,18 @@ function renderList(kind){
 
   const books = state.books.filter(b => b.format === format && !b.read && !b.acquired);
 
+  const iconE = svgReader("small");
+  const iconW = svgHeart("small");
+  const iconP = svgOpenBook("small");
+  const iconR = svgClosedBook("small");
+
   root.innerHTML = `
     ${brandCenter(subtitle)}
 
     <div class="row" style="justify-content:center; margin-bottom:6px">
       <button class="btn" id="btnBack">← Retour</button>
-      <button class="btn" onclick="show('add')">➕ Ajouter</button>
-      <button class="btn" onclick="show('pal')">📚 PAL</button>
+      <button class="btn" onclick="show('add')">＋ Ajouter</button>
+      <button class="btn" onclick="show('pal')">${iconP} PAL</button>
     </div>
 
     <div class="panel">
@@ -519,7 +577,7 @@ function renderList(kind){
 }
 
 function renderCardObtainable(b, obtainLabel){
-  const icon = formatIcon(b);
+  const icon = (b.format === "ebook") ? "📱" : "❤";
   const author = toAuthorsDisplay(b.authors);
   return `
     <div class="card" data-open="${escapeHtml(b.id)}">
@@ -538,19 +596,23 @@ function renderCardObtainable(b, obtainLabel){
   `;
 }
 
-/* ===== PAL (acquired && !read) ===== */
+/* ===== PAL ===== */
 function renderPAL(){
   const root = document.getElementById("view-pal");
   const books = state.books.filter(b => b.acquired && !b.read);
+
+  const iconE = svgReader("small");
+  const iconW = svgHeart("small");
+  const iconR = svgClosedBook("small");
 
   root.innerHTML = `
     ${brandCenter("PAL (à lire)")}
 
     <div class="row" style="justify-content:center; margin-bottom:6px">
       <button class="btn" id="btnBack">← Retour</button>
-      <button class="btn" onclick="show('ebooks')">📘 Ebooks</button>
-      <button class="btn" onclick="show('wishlist')">🎀 Wishlist</button>
-      <button class="btn" onclick="show('read')">✅ Livres Lus</button>
+      <button class="btn" onclick="show('ebooks')">${iconE} Ebooks</button>
+      <button class="btn" onclick="show('wishlist')">${iconW} Wishlist</button>
+      <button class="btn" onclick="show('read')">${iconR} Livres Lus</button>
     </div>
 
     <div class="panel">
@@ -612,7 +674,7 @@ function renderPAL(){
 }
 
 function renderCardPAL(b){
-  const icon = formatIcon(b);
+  const icon = (b.format === "ebook") ? "📱" : "❤";
   const author = toAuthorsDisplay(b.authors);
   return `
     <div class="card" data-open="${escapeHtml(b.id)}">
@@ -623,7 +685,7 @@ function renderCardPAL(b){
         <p class="t">${escapeHtml(b.title || "Sans titre")}</p>
         <p class="a">${escapeHtml(author)}</p>
         <div class="actions">
-          <span class="chip" data-action="read" data-id="${escapeHtml(b.id)}">✅ Lu</span>
+          <span class="chip" data-action="read" data-id="${escapeHtml(b.id)}">✓ Lu</span>
           <span class="chip danger" data-action="delete" data-id="${escapeHtml(b.id)}">🗑 Supprimer</span>
         </div>
       </div>
@@ -636,12 +698,14 @@ function renderRead(){
   const root = document.getElementById("view-read");
   const books = state.books.filter(b => b.read);
 
+  const iconP = svgOpenBook("small");
+
   root.innerHTML = `
     ${brandCenter("Livres Lus")}
 
     <div class="row" style="justify-content:center; margin-bottom:6px">
       <button class="btn" id="btnBack">← Retour</button>
-      <button class="btn" onclick="show('pal')">📚 PAL</button>
+      <button class="btn" onclick="show('pal')">${iconP} PAL</button>
       <button class="btn danger" id="clear">Vider</button>
     </div>
 
@@ -711,7 +775,7 @@ function renderRead(){
 }
 
 function renderCardRead(b){
-  const icon = formatIcon(b);
+  const icon = (b.format === "ebook") ? "📱" : "❤";
   const author = toAuthorsDisplay(b.authors);
   const fmt = formatFormatLabel(b);
   return `
@@ -723,7 +787,7 @@ function renderCardRead(b){
         <p class="t">${escapeHtml(b.title || "Sans titre")}</p>
         <p class="a">${escapeHtml(author)}</p>
         <div class="actions">
-          <span class="chip">${fmt}</span>
+          <span class="chip">${escapeHtml(fmt)}</span>
           <span class="chip danger" data-action="delete" data-id="${escapeHtml(b.id)}">🗑 Supprimer</span>
         </div>
       </div>
@@ -735,13 +799,18 @@ function renderCardRead(b){
 function renderAdd(){
   const root = document.getElementById("view-add");
 
+  const iconE = svgReader("small");
+  const iconW = svgHeart("small");
+  const iconP = svgOpenBook("small");
+
   root.innerHTML = `
     ${brandCenter("Ajouter")}
 
     <div class="row" style="justify-content:center; margin-bottom:10px">
       <button class="btn" id="btnBack">← Retour</button>
-      <button class="btn" onclick="show('ebooks')">📘 Ebooks</button>
-      <button class="btn" onclick="show('wishlist')">🎀 Wishlist</button>
+      <button class="btn" onclick="show('ebooks')">${iconE} Ebooks</button>
+      <button class="btn" onclick="show('wishlist')">${iconW} Wishlist</button>
+      <button class="btn" onclick="show('pal')">${iconP} PAL</button>
     </div>
 
     <div class="panel">
@@ -751,8 +820,8 @@ function renderAdd(){
           <input class="input" id="searchQuery" placeholder="Titre, auteur ou ISBN (ex: 'Dune Herbert')" />
           <button class="btn" id="searchBtn">Rechercher</button>
           <select id="formatPick">
-            <option value="ebook">📘 Ebook</option>
-            <option value="wishlist">🎀 Wishlist</option>
+            <option value="ebook">Ebook</option>
+            <option value="wishlist">Wishlist</option>
           </select>
         </div>
         <div class="hint">Les livres ajoutés arrivent dans Ebooks ou Wishlist (avant obtention).</div>
@@ -774,8 +843,8 @@ function renderAdd(){
           <input class="input" id="mSeries" placeholder="Série (optionnel)" />
           <input class="input" id="mVolume" placeholder="Tome n° (optionnel)" />
           <select id="mFormat">
-            <option value="ebook">📘 Ebook</option>
-            <option value="wishlist">🎀 Wishlist</option>
+            <option value="ebook">Ebook</option>
+            <option value="wishlist">Wishlist</option>
           </select>
         </div>
         <div class="row">
@@ -838,11 +907,10 @@ function renderAdd(){
   }
 
   function renderSearchCard(b){
-    const icon = (formatPick.value === "ebook") ? "📘" : "🎀";
     return `
       <div class="card">
         <div class="cover">
-          ${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="Couverture">` : icon}
+          ${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="Couverture">` : "＋"}
         </div>
         <div class="meta">
           <p class="t">${escapeHtml(b.title || "Sans titre")}</p>
@@ -903,7 +971,7 @@ function bindCards(container){
       const id = el.dataset.id;
       const book = state.books.find(b => b.id === id);
       if(!book) return;
-      book.acquired = true; // -> PAL
+      book.acquired = true;
       saveState();
       show("pal");
     });
@@ -946,7 +1014,7 @@ function addBook(meta, format){
     authors: meta.authors || [],
     series: meta.series || "",
     volumeNumber: meta.volumeNumber || "",
-    format: format || "ebook",   // ebook | wishlist
+    format: format || "ebook",
     summary: meta.summary || "",
     coverUrl: meta.coverUrl || "",
     isbn: meta.isbn || "",
@@ -982,12 +1050,12 @@ function openModal(id){
 
   cover.innerHTML = book.coverUrl
     ? `<img src="${escapeHtml(book.coverUrl)}" alt="Couverture">`
-    : `<div style="display:grid;place-items:center;height:100%;color:rgba(255,255,255,.35);font-weight:900;font-size:44px">${formatIcon(book)}</div>`;
+    : `<div style="display:grid;place-items:center;height:100%;color:rgba(255,255,255,.35);font-weight:900;font-size:40px">${formatIconFallback(book)}</div>`;
 
   desc.textContent = (book.summary || "Aucune description trouvée.").trim();
 
   badges.innerHTML = `
-    <span class="chip">${formatFormatLabel(book)}</span>
+    <span class="chip">${escapeHtml(formatFormatLabel(book))}</span>
     ${book.series ? `<span class="chip">${escapeHtml(book.series)}${book.volumeNumber ? " — Tome " + escapeHtml(book.volumeNumber) : ""}</span>` : ""}
     ${book.isbn ? `<span class="chip">ISBN: ${escapeHtml(book.isbn)}</span>` : ""}
     ${book.acquired ? `<span class="chip">PAL</span>` : `<span class="chip">À obtenir</span>`}
