@@ -1,11 +1,12 @@
-const CACHE = "bookapp-cache-v3";
+const CACHE = "bbs-cache-v4";
 const ASSETS = [
   "./",
   "./index.html",
   "./manifest.json",
   "./sw.js",
   "./icon-192.png",
-  "./icon-512.png"
+  "./icon-512.png",
+  "./bbs-logo.png"
 ];
 
 self.addEventListener("install", (event) => {
