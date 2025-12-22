@@ -1,0 +1,1089 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#6D28D9" />
+  <title>Ma Bibliothèque</title>
+  <link rel="manifest" href="manifest.json" />
+  <style>
+    :root{
+      --bg:#0b0b10;
+      --panel:#12121a;
+      --panel2:#171724;
+      --text:#f2f2f7;
+      --muted:#b9b9c7;
+      --accent:#6D28D9;
+      --ok:#22c55e;
+      --warn:#f59e0b;
+      --danger:#ef4444;
+      --border:rgba(255,255,255,.08);
+      --shadow: 0 12px 30px rgba(0,0,0,.45);
+      --radius: 16px;
+      --radius2: 22px;
+      --w: 1100px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background: radial-gradient(900px 500px at 30% -10%, rgba(109,40,217,.25), transparent 60%),
+                  radial-gradient(900px 600px at 80% 0%, rgba(34,197,94,.12), transparent 60%),
+                  var(--bg);
+      color:var(--text);
+    }
+    a{color:inherit; text-decoration:none}
+    .wrap{max-width:var(--w); margin:0 auto; padding:18px}
+    header{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:14px 16px; border:1px solid var(--border);
+      background:rgba(18,18,26,.7); backdrop-filter: blur(10px);
+      border-radius: var(--radius2); box-shadow: var(--shadow);
+      position: sticky; top: 12px; z-index: 10;
+    }
+    .brand{display:flex; gap:12px; align-items:center}
+    .logo{
+      width:44px; height:44px; border-radius:14px;
+      background: linear-gradient(135deg, rgba(109,40,217,.9), rgba(109,40,217,.25));
+      border:1px solid rgba(255,255,255,.12);
+      display:grid; place-items:center; font-weight:800;
+      letter-spacing:.5px;
+    }
+    .title{line-height:1.05}
+    .title b{display:block; font-size:16px}
+    .title span{font-size:12px; color:var(--muted)}
+    nav{display:flex; gap:8px; flex-wrap:wrap}
+    .tab{
+      padding:10px 12px; border-radius: 999px;
+      border:1px solid var(--border);
+      background: rgba(23,23,36,.6);
+      color: var(--muted);
+      font-size:13px; font-weight:700;
+      cursor:pointer;
+    }
+    .tab.active{
+      background: rgba(109,40,217,.25);
+      border-color: rgba(109,40,217,.45);
+      color: var(--text);
+    }
+
+    .grid{
+      display:grid; grid-template-columns: 1fr; gap:14px;
+      margin-top:16px;
+    }
+    .panel{
+      border:1px solid var(--border);
+      background: rgba(18,18,26,.7);
+      border-radius: var(--radius2);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .panel h2{
+      margin:0; padding:14px 16px;
+      font-size:14px; letter-spacing:.3px;
+      color: var(--muted);
+      border-bottom:1px solid var(--border);
+      display:flex; align-items:center; justify-content:space-between;
+      gap:12px;
+    }
+    .panel .content{padding:14px 16px}
+    .row{display:flex; gap:10px; flex-wrap:wrap}
+    .row > *{flex: 1 1 200px}
+    .input, select, textarea{
+      width:100%;
+      background: rgba(23,23,36,.85);
+      border:1px solid var(--border);
+      color: var(--text);
+      padding:11px 12px;
+      border-radius: 14px;
+      outline:none;
+      font-size:14px;
+    }
+    textarea{min-height:100px; resize: vertical}
+    .btn{
+      background: rgba(109,40,217,.92);
+      border:1px solid rgba(109,40,217,.65);
+      color: white;
+      font-weight:800;
+      padding:11px 14px;
+      border-radius: 14px;
+      cursor:pointer;
+    }
+    .btn.ghost{
+      background: rgba(23,23,36,.6);
+      border-color: var(--border);
+      color: var(--text);
+      font-weight:800;
+    }
+    .btn.danger{
+      background: rgba(239,68,68,.9);
+      border-color: rgba(239,68,68,.55);
+    }
+    .hint{color:var(--muted); font-size:12px; margin-top:8px; line-height:1.35}
+    .split{display:flex; gap:12px; align-items:center; flex-wrap:wrap}
+    .chip{
+      display:inline-flex; gap:8px; align-items:center;
+      padding:7px 10px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      background: rgba(23,23,36,.65);
+      color: var(--muted);
+      font-size:12px;
+      font-weight:800;
+    }
+    .chip b{color:var(--text)}
+    .chip.ok{border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.12)}
+    .chip.warn{border-color: rgba(245,158,11,.35); background: rgba(245,158,11,.12)}
+    .chip.purple{border-color: rgba(109,40,217,.45); background: rgba(109,40,217,.16); color: var(--text)}
+    .list{
+      display:grid;
+      grid-template-columns: repeat( auto-fill, minmax(240px, 1fr) );
+      gap: 12px;
+      padding: 14px 16px 18px;
+    }
+    .card{
+      border:1px solid var(--border);
+      background: rgba(23,23,36,.65);
+      border-radius: var(--radius);
+      overflow:hidden;
+      display:flex;
+      gap:12px;
+      padding:12px;
+      cursor:pointer;
+      transition: transform .06s ease;
+    }
+    .card:hover{transform: translateY(-1px)}
+    .cover{
+      width:64px; height:92px;
+      border-radius: 10px;
+      background: rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.08);
+      overflow:hidden;
+      flex: 0 0 auto;
+      display:grid; place-items:center;
+      color: rgba(255,255,255,.35);
+      font-weight:900;
+    }
+    .cover img{width:100%; height:100%; object-fit:cover; display:block}
+    .meta{min-width:0; flex:1}
+    .meta .t{font-weight:900; font-size:14px; margin:0 0 4px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+    .meta .a{color:var(--muted); font-size:12px; margin:0 0 6px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+    .meta .badges{display:flex; gap:6px; flex-wrap:wrap}
+    .badge{
+      font-size:11px; font-weight:900;
+      padding:4px 8px;
+      border-radius: 999px;
+      border:1px solid var(--border);
+      background: rgba(0,0,0,.15);
+      color: var(--muted);
+      max-width:100%;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .badge.purple{border-color: rgba(109,40,217,.45); background: rgba(109,40,217,.16); color: var(--text)}
+    .badge.ok{border-color: rgba(34,197,94,.4); background: rgba(34,197,94,.14); color: var(--text)}
+    .badge.warn{border-color: rgba(245,158,11,.4); background: rgba(245,158,11,.14); color: var(--text)}
+    .actions{
+      margin-top:10px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    .check{
+      display:flex; gap:8px; align-items:center;
+      padding:8px 10px;
+      border-radius: 12px;
+      border:1px solid var(--border);
+      background: rgba(0,0,0,.18);
+      user-select:none;
+      cursor:pointer;
+      font-size:12px;
+      font-weight:900;
+      color: var(--muted);
+    }
+    .check input{accent-color: var(--accent)}
+    .check.on{color: var(--text); border-color: rgba(255,255,255,.14)}
+    .divider{height:1px; background: var(--border); margin: 0}
+    .empty{
+      padding: 22px 16px;
+      color: var(--muted);
+      text-align:center;
+      font-size:13px;
+    }
+
+    /* Modal */
+    .modal-backdrop{
+      position:fixed; inset:0;
+      background: rgba(0,0,0,.6);
+      display:none;
+      align-items:center; justify-content:center;
+      padding: 18px;
+      z-index: 50;
+    }
+    .modal{
+      width:min(860px, 100%);
+      border:1px solid var(--border);
+      border-radius: var(--radius2);
+      background: rgba(18,18,26,.92);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .modal header{
+      position:unset;
+      border-radius: 0;
+      box-shadow:none;
+      border:none;
+      border-bottom:1px solid var(--border);
+      background: rgba(18,18,26,.92);
+      backdrop-filter:none;
+      top:auto;
+      padding: 14px 16px;
+    }
+    .modal .body{
+      padding: 14px 16px 18px;
+      display:grid;
+      grid-template-columns: 160px 1fr;
+      gap: 14px;
+    }
+    .modal .bigcover{
+      width:160px; height:230px;
+      border-radius: 14px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(255,255,255,.06);
+      overflow:hidden;
+    }
+    .modal .bigcover img{width:100%; height:100%; object-fit:cover; display:block}
+    .modal .desc{
+      color: var(--text);
+      line-height:1.45;
+      font-size:14px;
+      white-space: pre-wrap;
+    }
+    .modal .desc .muted{color:var(--muted); font-weight:700}
+    .modal .foot{
+      border-top: 1px solid var(--border);
+      padding: 12px 16px;
+      display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;
+    }
+
+    @media (max-width:720px){
+      .modal .body{grid-template-columns: 1fr; }
+      .modal .bigcover{width: 100%; height: 320px}
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="logo">📚</div>
+        <div class="title">
+          <b>Ma Bibliothèque</b>
+          <span>À lire / À obtenir / Historique</span>
+        </div>
+      </div>
+      <nav>
+        <button class="tab active" data-route="liste">Liste</button>
+        <button class="tab" data-route="historique">Historique</button>
+        <button class="tab" data-route="ajout">Ajouter</button>
+      </nav>
+    </header>
+
+    <div id="view-liste" class="grid"></div>
+    <div id="view-historique" class="grid" style="display:none"></div>
+    <div id="view-ajout" class="grid" style="display:none"></div>
+  </div>
+
+  <!-- Modal détails -->
+  <div id="modalBackdrop" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal">
+      <header>
+        <div class="brand" style="gap:10px">
+          <div class="logo" id="modalIcon" style="width:38px;height:38px;border-radius:12px">📘</div>
+          <div class="title">
+            <b id="modalTitle">—</b>
+            <span id="modalAuthor">—</span>
+          </div>
+        </div>
+        <button class="btn ghost" id="modalClose">Fermer</button>
+      </header>
+      <div class="body">
+        <div class="bigcover" id="modalCover"></div>
+        <div class="desc" id="modalDesc"></div>
+      </div>
+      <div class="foot">
+        <div class="split" id="modalBadges"></div>
+        <div class="split">
+          <button class="btn danger" id="modalDelete">Supprimer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/**
+ * Webapp "Gestion de livres"
+ * - Stockage: localStorage (simple, offline-friendly)
+ * - Récup métadonnées: Google Books, fallback Open Library
+ *
+ * Champs gérés:
+ * id, title, authors[], themes[], series, volumeNumber, format ("ebook"|"paper"),
+ * summary, coverUrl, isbn, acquired (bool), read (bool), createdAt, readAt
+ */
+
+const STORAGE_KEY = "bookApp.v1";
+const state = loadState();
+
+function uid(){ return Math.random().toString(16).slice(2) + Date.now().toString(16); }
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return { books: [] };
+    const parsed = JSON.parse(raw);
+    if(!parsed.books) return { books: [] };
+    return parsed;
+  }catch{
+    return { books: [] };
+  }
+}
+
+function saveState(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function escapeHtml(str){
+  return String(str ?? "").replace(/[&<>"']/g, s => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"
+  }[s]));
+}
+
+function normalizeThemes(input){
+  // "fantasy, roman; SF" -> ["fantasy","roman","SF"]
+  return String(input ?? "")
+    .split(/[,;|]/g)
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+
+function toAuthorsDisplay(authors){
+  if(!authors || !authors.length) return "Auteur inconnu";
+  return authors.join(", ");
+}
+
+function formatBadgeForAcquired(book){
+  if(!book.acquired) return null;
+  return book.format === "ebook" ? "Téléchargé" : "Acheté";
+}
+
+function formatIcon(book){
+  return book.format === "ebook" ? "📘" : "📗";
+}
+
+function bookSorters(){
+  return {
+    created: (a,b)=> (b.createdAt||0) - (a.createdAt||0),
+    author: (a,b)=> ( (a.authors?.[0]||"").localeCompare(b.authors?.[0]||"", "fr") || (a.title||"").localeCompare(b.title||"", "fr") ),
+    theme: (a,b)=> ( (a.themes?.[0]||"").localeCompare(b.themes?.[0]||"", "fr") || (a.title||"").localeCompare(b.title||"", "fr") ),
+    tome: (a,b)=> {
+      const sa = (a.series||"").localeCompare(b.series||"", "fr");
+      if(sa !== 0) return sa;
+      const va = Number(a.volumeNumber || 0);
+      const vb = Number(b.volumeNumber || 0);
+      if(va !== vb) return va - vb;
+      return (a.title||"").localeCompare(b.title||"", "fr");
+    },
+  };
+}
+
+function routeTo(route){
+  document.querySelectorAll(".tab").forEach(t=>{
+    t.classList.toggle("active", t.dataset.route === route);
+  });
+  document.getElementById("view-liste").style.display = route === "liste" ? "" : "none";
+  document.getElementById("view-historique").style.display = route === "historique" ? "" : "none";
+  document.getElementById("view-ajout").style.display = route === "ajout" ? "" : "none";
+  if(route === "liste") renderListe();
+  if(route === "historique") renderHistorique();
+  if(route === "ajout") renderAjout();
+}
+
+/* ============ RENDER: LISTE ============ */
+
+function renderListe(){
+  const root = document.getElementById("view-liste");
+  const books = state.books.filter(b => !b.read);
+
+  root.innerHTML = `
+    <div class="panel">
+      <h2>
+        <span>📌 À lire / À obtenir</span>
+        <span class="chip purple"><b>${books.length}</b>&nbsp;livre(s)</span>
+      </h2>
+      <div class="content">
+        <div class="row">
+          <input class="input" id="qListe" placeholder="Rechercher (titre, auteur, thème, série…)" />
+          <select id="sortListe">
+            <option value="created">Tri : récent</option>
+            <option value="author">Tri : auteur</option>
+            <option value="theme">Tri : thème</option>
+            <option value="tome">Tri : tome (série + n°)</option>
+          </select>
+          <select id="filterFormat">
+            <option value="">Format : tous</option>
+            <option value="ebook">📘 Ebook (à télécharger)</option>
+            <option value="paper">📗 Papier (à acheter)</option>
+          </select>
+        </div>
+        <div class="hint">
+          Astuce : “Obtenu” = ${escapeHtml("Téléchargé")} si ebook, ${escapeHtml("Acheté")} si papier.
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div id="listeCards" class="list"></div>
+    </div>
+  `;
+
+  const q = root.querySelector("#qListe");
+  const sortSel = root.querySelector("#sortListe");
+  const fmtSel = root.querySelector("#filterFormat");
+  const cards = root.querySelector("#listeCards");
+
+  function apply(){
+    const query = (q.value||"").trim().toLowerCase();
+    const format = fmtSel.value;
+    const sorter = bookSorters()[sortSel.value] || bookSorters().created;
+
+    let filtered = books.slice();
+
+    if(format){
+      filtered = filtered.filter(b => b.format === format);
+    }
+    if(query){
+      filtered = filtered.filter(b => {
+        const hay = [
+          b.title,
+          (b.authors||[]).join(" "),
+          (b.themes||[]).join(" "),
+          b.series,
+          b.volumeNumber
+        ].join(" ").toLowerCase();
+        return hay.includes(query);
+      });
+    }
+
+    filtered.sort(sorter);
+
+    if(!filtered.length){
+      cards.innerHTML = `<div class="empty">Aucun livre ici. Va dans <b>Ajouter</b> pour en mettre un 🙂</div>`;
+      return;
+    }
+
+    cards.innerHTML = filtered.map(b => renderBookCard(b)).join("");
+    bindCardActions(cards);
+  }
+
+  q.addEventListener("input", apply);
+  sortSel.addEventListener("change", apply);
+  fmtSel.addEventListener("change", apply);
+
+  apply();
+}
+
+function renderBookCard(b){
+  const icon = formatIcon(b);
+  const acquiredLabel = formatBadgeForAcquired(b);
+  const author = toAuthorsDisplay(b.authors);
+  const series = b.series ? `${b.series}${b.volumeNumber ? " — Tome " + b.volumeNumber : ""}` : "";
+  const theme = (b.themes && b.themes.length) ? b.themes[0] : "";
+
+  return `
+    <div class="card" data-open="${escapeHtml(b.id)}" title="Ouvrir la fiche">
+      <div class="cover">
+        ${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="Couverture">` : `${icon}`}
+      </div>
+      <div class="meta">
+        <p class="t">${escapeHtml(b.title || "Sans titre")}</p>
+        <p class="a">${escapeHtml(author)}</p>
+        <div class="badges">
+          <span class="badge purple">${icon} ${b.format === "ebook" ? "Ebook" : "Papier"}</span>
+          ${series ? `<span class="badge">${escapeHtml(series)}</span>` : ""}
+          ${theme ? `<span class="badge">${escapeHtml(theme)}</span>` : ""}
+          ${acquiredLabel ? `<span class="badge ${b.acquired ? "warn" : ""}">${escapeHtml(acquiredLabel)}</span>` : ""}
+        </div>
+
+        <div class="actions" data-actions="${escapeHtml(b.id)}">
+          <label class="check ${b.acquired ? "on" : ""}" title="Marquer comme obtenu">
+            <input type="checkbox" ${b.acquired ? "checked" : ""} data-toggle="acquired" data-id="${escapeHtml(b.id)}"/>
+            <span>${b.format === "ebook" ? "Téléchargé" : "Acheté"}</span>
+          </label>
+          <label class="check ${b.read ? "on" : ""}" title="Marquer comme lu">
+            <input type="checkbox" ${b.read ? "checked" : ""} data-toggle="read" data-id="${escapeHtml(b.id)}"/>
+            <span>Lu</span>
+          </label>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function bindCardActions(container){
+  container.querySelectorAll('input[data-toggle="acquired"]').forEach(cb=>{
+    cb.addEventListener("click", (e)=>{
+      e.stopPropagation();
+      const id = cb.dataset.id;
+      const book = state.books.find(x => x.id === id);
+      if(!book) return;
+      book.acquired = cb.checked;
+      saveState();
+      renderListe();
+    });
+  });
+
+  container.querySelectorAll('input[data-toggle="read"]').forEach(cb=>{
+    cb.addEventListener("click", (e)=>{
+      e.stopPropagation();
+      const id = cb.dataset.id;
+      const book = state.books.find(x => x.id === id);
+      if(!book) return;
+      book.read = cb.checked;
+      book.readAt = cb.checked ? Date.now() : null;
+      saveState();
+      // si lu => il doit quitter la liste, donc rerender direct
+      renderListe();
+    });
+  });
+
+  container.querySelectorAll("[data-open]").forEach(card=>{
+    card.addEventListener("click", ()=>{
+      openModal(card.dataset.open);
+    });
+  });
+}
+
+/* ============ RENDER: HISTORIQUE ============ */
+
+function renderHistorique(){
+  const root = document.getElementById("view-historique");
+  const books = state.books.filter(b => b.read);
+
+  root.innerHTML = `
+    <div class="panel">
+      <h2>
+        <span>🕘 Historique (Lu)</span>
+        <span class="chip ok"><b>${books.length}</b>&nbsp;lu(s)</span>
+      </h2>
+      <div class="content">
+        <div class="row">
+          <input class="input" id="qHist" placeholder="Rechercher dans l'historique…" />
+          <select id="sortHist">
+            <option value="created">Tri : ajout récent</option>
+            <option value="author">Tri : auteur</option>
+            <option value="theme">Tri : thème</option>
+            <option value="tome">Tri : tome (série + n°)</option>
+          </select>
+          <button class="btn danger" id="clearRead">Vider l'historique</button>
+        </div>
+        <div class="hint">Les livres marqués “Lu” arrivent ici automatiquement.</div>
+      </div>
+      <div class="divider"></div>
+      <div id="histCards" class="list"></div>
+    </div>
+  `;
+
+  const q = root.querySelector("#qHist");
+  const sortSel = root.querySelector("#sortHist");
+  const cards = root.querySelector("#histCards");
+
+  function apply(){
+    const query = (q.value||"").trim().toLowerCase();
+    const sorter = bookSorters()[sortSel.value] || bookSorters().created;
+
+    let filtered = books.slice();
+    if(query){
+      filtered = filtered.filter(b => {
+        const hay = [
+          b.title,
+          (b.authors||[]).join(" "),
+          (b.themes||[]).join(" "),
+          b.series,
+          b.volumeNumber
+        ].join(" ").toLowerCase();
+        return hay.includes(query);
+      });
+    }
+    filtered.sort(sorter);
+
+    if(!filtered.length){
+      cards.innerHTML = `<div class="empty">Historique vide (pour l’instant).</div>`;
+      return;
+    }
+
+    cards.innerHTML = filtered.map(b => renderBookCard(b)).join("");
+    bindCardActions(cards);
+  }
+
+  q.addEventListener("input", apply);
+  sortSel.addEventListener("change", apply);
+
+  root.querySelector("#clearRead").addEventListener("click", ()=>{
+    // Supprime uniquement ceux qui sont read=true
+    const keep = state.books.filter(b => !b.read);
+    state.books = keep;
+    saveState();
+    renderHistorique();
+  });
+
+  apply();
+}
+
+/* ============ RENDER: AJOUT ============ */
+
+function renderAjout(){
+  const root = document.getElementById("view-ajout");
+
+  root.innerHTML = `
+    <div class="panel">
+      <h2>➕ Ajouter un livre</h2>
+      <div class="content">
+        <div class="row">
+          <input class="input" id="searchQuery" placeholder="Recherche: titre, auteur ou ISBN (ex: 'Dune Herbert' ou ISBN…)" />
+          <button class="btn" id="searchBtn">Rechercher</button>
+          <select id="formatPick">
+            <option value="ebook">📘 Ebook (télécharger)</option>
+            <option value="paper">📗 Papier (acheter)</option>
+          </select>
+        </div>
+        <div class="hint">
+          Recherche auto via Google Books (principal) et Open Library (fallback). :contentReference[oaicite:3]{index=3}
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div class="content">
+        <div id="searchStatus" class="hint"></div>
+        <div id="searchResults" class="list"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>✍️ Ajout manuel (si besoin)</h2>
+      <div class="content">
+        <div class="row">
+          <input class="input" id="mTitle" placeholder="Titre" />
+          <input class="input" id="mAuthor" placeholder="Auteur (ex: Frank Herbert)" />
+        </div>
+        <div class="row">
+          <input class="input" id="mThemes" placeholder="Thèmes (séparés par virgule) ex: SF, Politique, Désert" />
+          <input class="input" id="mSeries" placeholder="Série (optionnel) ex: Dune" />
+          <input class="input" id="mVolume" placeholder="Tome n° (optionnel) ex: 1" />
+        </div>
+        <div class="row">
+          <input class="input" id="mCover" placeholder="URL couverture (optionnel)" />
+          <input class="input" id="mIsbn" placeholder="ISBN (optionnel)" />
+          <select id="mFormat">
+            <option value="ebook">📘 Ebook (télécharger)</option>
+            <option value="paper">📗 Papier (acheter)</option>
+          </select>
+        </div>
+        <textarea class="input" id="mSummary" placeholder="Résumé (optionnel)"></textarea>
+        <div class="split" style="margin-top:10px">
+          <button class="btn" id="addManual">Ajouter</button>
+          <button class="btn ghost" id="resetManual">Réinitialiser</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const q = root.querySelector("#searchQuery");
+  const btn = root.querySelector("#searchBtn");
+  const status = root.querySelector("#searchStatus");
+  const results = root.querySelector("#searchResults");
+  const formatPick = root.querySelector("#formatPick");
+
+  btn.addEventListener("click", ()=> doSearch());
+  q.addEventListener("keydown", (e)=>{ if(e.key==="Enter") doSearch(); });
+
+  async function doSearch(){
+    const query = (q.value||"").trim();
+    if(!query){
+      status.textContent = "Tape un titre/auteur/ISBN puis lance la recherche.";
+      results.innerHTML = "";
+      return;
+    }
+    status.textContent = "Recherche en cours…";
+    results.innerHTML = "";
+
+    // 1) Google Books
+    try{
+      const google = await searchGoogleBooks(query);
+      if(google.length){
+        status.textContent = `Résultats (Google Books): ${google.length}`;
+        results.innerHTML = google.map(b => renderSearchResult(b)).join("");
+        bindSearchResultButtons(results);
+        return;
+      }
+    }catch(err){
+      // continue fallback
+    }
+
+    // 2) Open Library fallback
+    try{
+      const ol = await searchOpenLibrary(query);
+      if(ol.length){
+        status.textContent = `Résultats (Open Library): ${ol.length}`;
+        results.innerHTML = ol.map(b => renderSearchResult(b)).join("");
+        bindSearchResultButtons(results);
+        return;
+      }
+    }catch(err){
+      // ignore
+    }
+
+    status.textContent = "Aucun résultat. Essaye un autre mot-clé ou utilise l’ajout manuel.";
+  }
+
+  function renderSearchResult(b){
+    // b = {title, authors[], summary, coverUrl, isbn, themes[], series, volumeNumber}
+    const icon = (formatPick.value === "ebook") ? "📘" : "📗";
+    return `
+      <div class="card" data-preview="${escapeHtml(b._previewId)}" title="Prévisualiser">
+        <div class="cover">
+          ${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="Couverture">` : icon}
+        </div>
+        <div class="meta">
+          <p class="t">${escapeHtml(b.title || "Sans titre")}</p>
+          <p class="a">${escapeHtml(toAuthorsDisplay(b.authors))}</p>
+          <div class="badges">
+            ${b.isbn ? `<span class="badge">ISBN: ${escapeHtml(b.isbn)}</span>` : ""}
+            ${(b.series) ? `<span class="badge">${escapeHtml(b.series)}${b.volumeNumber ? " — Tome " + escapeHtml(b.volumeNumber) : ""}</span>` : ""}
+            ${(b.themes && b.themes[0]) ? `<span class="badge">${escapeHtml(b.themes[0])}</span>` : ""}
+          </div>
+          <div class="actions">
+            <button class="btn" data-add="${escapeHtml(b._previewId)}">Ajouter</button>
+            <button class="btn ghost" data-openpreview="${escapeHtml(b._previewId)}">Voir détails</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // stash en mémoire (temp) des résultats
+  window.__SEARCH_CACHE = window.__SEARCH_CACHE || new Map();
+
+  function bindSearchResultButtons(container){
+    container.querySelectorAll("[data-add]").forEach(el=>{
+      el.addEventListener("click", (e)=>{
+        e.stopPropagation();
+        const pid = el.dataset.add;
+        const book = window.__SEARCH_CACHE.get(pid);
+        if(!book) return;
+
+        const format = formatPick.value;
+        addBookToLibrary(book, format);
+        status.textContent = "Ajouté ✅ (va dans Liste)";
+      });
+    });
+
+    container.querySelectorAll("[data-openpreview]").forEach(el=>{
+      el.addEventListener("click", (e)=>{
+        e.stopPropagation();
+        const pid = el.dataset.openpreview;
+        const book = window.__SEARCH_CACHE.get(pid);
+        if(!book) return;
+        openPreviewModal(book, formatPick.value);
+      });
+    });
+  }
+
+  // Manual
+  root.querySelector("#addManual").addEventListener("click", ()=>{
+    const title = root.querySelector("#mTitle").value.trim();
+    const author = root.querySelector("#mAuthor").value.trim();
+    const themes = normalizeThemes(root.querySelector("#mThemes").value);
+    const series = root.querySelector("#mSeries").value.trim();
+    const volumeNumber = root.querySelector("#mVolume").value.trim();
+    const coverUrl = root.querySelector("#mCover").value.trim();
+    const isbn = root.querySelector("#mIsbn").value.trim();
+    const summary = root.querySelector("#mSummary").value.trim();
+    const format = root.querySelector("#mFormat").value;
+
+    if(!title){
+      alert("Titre obligatoire.");
+      return;
+    }
+
+    addBookToLibrary({
+      title,
+      authors: author ? [author] : [],
+      themes,
+      series,
+      volumeNumber,
+      coverUrl,
+      isbn,
+      summary
+    }, format);
+
+    root.querySelector("#resetManual").click();
+    alert("Ajouté ✅");
+  });
+
+  root.querySelector("#resetManual").addEventListener("click", ()=>{
+    ["mTitle","mAuthor","mThemes","mSeries","mVolume","mCover","mIsbn","mSummary"].forEach(id=>{
+      root.querySelector("#"+id).value = "";
+    });
+    root.querySelector("#mFormat").value = "ebook";
+  });
+}
+
+/* ============ DATA: ADD BOOK ============ */
+
+function addBookToLibrary(meta, format){
+  const book = {
+    id: uid(),
+    title: meta.title || "Sans titre",
+    authors: meta.authors || [],
+    themes: meta.themes || [],
+    series: meta.series || "",
+    volumeNumber: meta.volumeNumber || "",
+    format: format || "ebook",
+    summary: meta.summary || "",
+    coverUrl: meta.coverUrl || "",
+    isbn: meta.isbn || "",
+    acquired: false,
+    read: false,
+    createdAt: Date.now(),
+    readAt: null
+  };
+
+  // Dédup simple : même titre + auteur1 + format + tome
+  const key = (book.title + "|" + (book.authors?.[0]||"") + "|" + book.format + "|" + (book.series||"") + "|" + (book.volumeNumber||"")).toLowerCase();
+  const exists = state.books.some(b=>{
+    const k = (b.title + "|" + (b.authors?.[0]||"") + "|" + b.format + "|" + (b.series||"") + "|" + (b.volumeNumber||"")).toLowerCase();
+    return k === key;
+  });
+  if(exists) return;
+
+  state.books.unshift(book);
+  saveState();
+  // si on est sur la page ajout, on laisse; sinon ok
+}
+
+/* ============ API: GOOGLE BOOKS ============ */
+
+async function searchGoogleBooks(query){
+  // Endpoint: https://www.googleapis.com/books/v1/volumes?q=...
+  // Doc officielle: Google Books APIs :contentReference[oaicite:4]{index=4}
+  const url = new URL("https://www.googleapis.com/books/v1/volumes");
+  url.searchParams.set("q", query);
+  url.searchParams.set("maxResults", "12");
+  // Optionnel: url.searchParams.set("key", "TA_CLE_API");
+
+  const res = await fetch(url.toString());
+  if(!res.ok) throw new Error("Google Books HTTP " + res.status);
+  const data = await res.json();
+  const items = data.items || [];
+  const out = [];
+
+  for(const it of items){
+    const v = it.volumeInfo || {};
+    const title = v.title || "";
+    const authors = v.authors || [];
+    const summary = stripHtml(v.description || "");
+    const isbn = pickIsbn(v.industryIdentifiers || []);
+    const coverUrl = pickGoogleCover(v.imageLinks);
+    const themes = (v.categories || []).slice(0,3);
+    const {series, volumeNumber} = inferSeriesAndTome(title, v.subtitle || "");
+
+    const b = {
+      _previewId: uid(),
+      title,
+      authors,
+      summary,
+      coverUrl,
+      isbn,
+      themes,
+      series,
+      volumeNumber
+    };
+    window.__SEARCH_CACHE = window.__SEARCH_CACHE || new Map();
+    window.__SEARCH_CACHE.set(b._previewId, b);
+    out.push(b);
+  }
+
+  return out;
+}
+
+function pickGoogleCover(imageLinks){
+  if(!imageLinks) return "";
+  // prefer thumbnail/smallThumbnail
+  return imageLinks.thumbnail || imageLinks.smallThumbnail || imageLinks.small || imageLinks.medium || "";
+}
+
+function pickIsbn(industryIdentifiers){
+  // prefer ISBN_13 then ISBN_10
+  const byType = {};
+  for(const id of industryIdentifiers){
+    if(id?.type && id?.identifier) byType[id.type] = id.identifier;
+  }
+  return byType.ISBN_13 || byType.ISBN_10 || "";
+}
+
+function stripHtml(html){
+  return String(html || "").replace(/<[^>]*>/g, "").trim();
+}
+
+/* ============ API: OPEN LIBRARY (fallback) ============ */
+
+async function searchOpenLibrary(query){
+  // Search API: https://openlibrary.org/search.json?q=... :contentReference[oaicite:5]{index=5}
+  const url = new URL("https://openlibrary.org/search.json");
+  url.searchParams.set("q", query);
+  url.searchParams.set("limit", "12");
+
+  const res = await fetch(url.toString());
+  if(!res.ok) throw new Error("OpenLibrary HTTP " + res.status);
+  const data = await res.json();
+  const docs = data.docs || [];
+  const out = [];
+
+  for(const d of docs){
+    const title = d.title || "";
+    const authors = d.author_name ? d.author_name.slice(0,3) : [];
+    const isbn = d.isbn ? d.isbn[0] : "";
+    const coverUrl = d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg` : ""; // Covers API :contentReference[oaicite:6]{index=6}
+    const themes = (d.subject || []).slice(0,3);
+    const {series, volumeNumber} = inferSeriesAndTome(title, "");
+
+    const b = {
+      _previewId: uid(),
+      title,
+      authors,
+      summary: "", // Open Library search ne donne pas toujours un résumé; on laisse vide
+      coverUrl,
+      isbn,
+      themes,
+      series,
+      volumeNumber
+    };
+    window.__SEARCH_CACHE = window.__SEARCH_CACHE || new Map();
+    window.__SEARCH_CACHE.set(b._previewId, b);
+    out.push(b);
+  }
+  return out;
+}
+
+/* ============ SERIES/TOME inference (simple) ============ */
+function inferSeriesAndTome(title, subtitle){
+  // Tentative simple : détecte "Tome 1", "T.1", "#1" etc.
+  const t = (title + " " + subtitle).trim();
+  let series = "";
+  let volumeNumber = "";
+
+  const m = t.match(/(.*?)(?:\s*[-:]\s*)?(?:tome|t\.|vol\.|volume|#)\s*([0-9]{1,3})/i);
+  if(m){
+    series = (m[1] || "").trim();
+    volumeNumber = (m[2] || "").trim();
+  }
+  return {series, volumeNumber};
+}
+
+/* ============ MODAL ============ */
+
+function openModal(id){
+  const book = state.books.find(b => b.id === id);
+  if(!book) return;
+  const backdrop = document.getElementById("modalBackdrop");
+  const cover = document.getElementById("modalCover");
+  const desc = document.getElementById("modalDesc");
+  const badges = document.getElementById("modalBadges");
+
+  document.getElementById("modalIcon").textContent = formatIcon(book);
+  document.getElementById("modalTitle").textContent = book.title || "Sans titre";
+  document.getElementById("modalAuthor").textContent = toAuthorsDisplay(book.authors);
+
+  cover.innerHTML = book.coverUrl ? `<img src="${escapeHtml(book.coverUrl)}" alt="Couverture">` : `<div style="display:grid;place-items:center;height:100%;color:rgba(255,255,255,.35);font-weight:900;font-size:44px">${formatIcon(book)}</div>`;
+
+  const lines = [];
+  lines.push(book.summary ? book.summary : "Aucune description trouvée. (Tu peux la compléter via l’ajout manuel.)");
+  desc.innerHTML = lines.map(l => escapeHtml(l)).join("\n");
+
+  badges.innerHTML = `
+    <span class="chip purple"><b>${formatIcon(book)}</b>&nbsp;${book.format === "ebook" ? "Ebook" : "Papier"}</span>
+    ${book.series ? `<span class="chip"><b>Série</b>&nbsp;${escapeHtml(book.series)}${book.volumeNumber ? " — Tome " + escapeHtml(book.volumeNumber) : ""}</span>` : ""}
+    ${(book.themes && book.themes.length) ? `<span class="chip"><b>Thèmes</b>&nbsp;${escapeHtml(book.themes.join(", "))}</span>` : ""}
+    ${book.acquired ? `<span class="chip warn"><b>Obtenu</b>&nbsp;${escapeHtml(formatBadgeForAcquired(book))}</span>` : `<span class="chip"><b>Obtenu</b>&nbsp;Non</span>`}
+    ${book.read ? `<span class="chip ok"><b>Lu</b>&nbsp;Oui</span>` : `<span class="chip"><b>Lu</b>&nbsp;Non</span>`}
+    ${book.isbn ? `<span class="chip"><b>ISBN</b>&nbsp;${escapeHtml(book.isbn)}</span>` : ""}
+  `;
+
+  document.getElementById("modalDelete").onclick = ()=>{
+    if(!confirm("Supprimer ce livre ?")) return;
+    state.books = state.books.filter(b => b.id !== id);
+    saveState();
+    closeModal();
+    // refresh current view
+    const current = document.querySelector(".tab.active")?.dataset.route || "liste";
+    routeTo(current);
+  };
+
+  backdrop.style.display = "flex";
+}
+
+function openPreviewModal(meta, format){
+  // Preview (pas encore dans la librairie)
+  const backdrop = document.getElementById("modalBackdrop");
+  const cover = document.getElementById("modalCover");
+  const desc = document.getElementById("modalDesc");
+  const badges = document.getElementById("modalBadges");
+
+  const icon = (format === "ebook") ? "📘" : "📗";
+
+  document.getElementById("modalIcon").textContent = icon;
+  document.getElementById("modalTitle").textContent = meta.title || "Sans titre";
+  document.getElementById("modalAuthor").textContent = toAuthorsDisplay(meta.authors);
+
+  cover.innerHTML = meta.coverUrl ? `<img src="${escapeHtml(meta.coverUrl)}" alt="Couverture">` : `<div style="display:grid;place-items:center;height:100%;color:rgba(255,255,255,.35);font-weight:900;font-size:44px">${icon}</div>`;
+  desc.textContent = (meta.summary || "Aucune description trouvée pour ce résultat.").trim();
+
+  badges.innerHTML = `
+    <span class="chip purple"><b>${icon}</b>&nbsp;${format === "ebook" ? "Ebook" : "Papier"}</span>
+    ${meta.series ? `<span class="chip"><b>Série</b>&nbsp;${escapeHtml(meta.series)}${meta.volumeNumber ? " — Tome " + escapeHtml(meta.volumeNumber) : ""}</span>` : ""}
+    ${(meta.themes && meta.themes.length) ? `<span class="chip"><b>Thèmes</b>&nbsp;${escapeHtml(meta.themes.join(", "))}</span>` : ""}
+    ${meta.isbn ? `<span class="chip"><b>ISBN</b>&nbsp;${escapeHtml(meta.isbn)}</span>` : ""}
+  `;
+
+  // bouton supprimer = cacher (preview)
+  document.getElementById("modalDelete").style.display = "none";
+
+  backdrop.style.display = "flex";
+}
+
+function closeModal(){
+  const backdrop = document.getElementById("modalBackdrop");
+  backdrop.style.display = "none";
+  document.getElementById("modalDelete").style.display = "";
+}
+
+document.getElementById("modalClose").addEventListener("click", closeModal);
+document.getElementById("modalBackdrop").addEventListener("click", (e)=>{
+  if(e.target.id === "modalBackdrop") closeModal();
+});
+
+/* ============ NAV ============ */
+document.querySelectorAll(".tab").forEach(t=>{
+  t.addEventListener("click", ()=> routeTo(t.dataset.route));
+});
+
+/* ============ PWA: service worker ============ */
+if("serviceWorker" in navigator){
+  window.addEventListener("load", ()=>{
+    navigator.serviceWorker.register("./sw.js").catch(()=>{});
+  });
+}
+
+/* Init */
+routeTo("liste");
+</script>
+</body>
+</html>
