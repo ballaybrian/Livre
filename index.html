@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#6D28D9" />
   <title>Ma Bibliothèque</title>
   <link rel="manifest" href="manifest.json" />
+
   <style>
     :root{
       --bg:#0b0b10;
@@ -153,18 +154,30 @@
       transition: transform .06s ease;
     }
     .card:hover{transform: translateY(-1px)}
+
+    /* ✅ Couverture miniature (à côté du titre) */
     .cover{
-      width:64px; height:92px;
-      border-radius: 10px;
-      background: rgba(255,255,255,.06);
-      border:1px solid rgba(255,255,255,.08);
+      width:52px;
+      height:78px;
+      border-radius:8px;
+      background: rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.12);
       overflow:hidden;
       flex: 0 0 auto;
-      display:grid; place-items:center;
-      color: rgba(255,255,255,.35);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:22px;
       font-weight:900;
+      color: rgba(255,255,255,.6);
     }
-    .cover img{width:100%; height:100%; object-fit:cover; display:block}
+    .cover img{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      display:block;
+    }
+
     .meta{min-width:0; flex:1}
     .meta .t{font-weight:900; font-size:14px; margin:0 0 4px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
     .meta .a{color:var(--muted); font-size:12px; margin:0 0 6px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
@@ -259,7 +272,6 @@
       font-size:14px;
       white-space: pre-wrap;
     }
-    .modal .desc .muted{color:var(--muted); font-weight:700}
     .modal .foot{
       border-top: 1px solid var(--border);
       padding: 12px 16px;
@@ -280,17 +292,22 @@
         <div class="logo">📚</div>
         <div class="title">
           <b>Ma Bibliothèque</b>
-          <span>À lire / À obtenir / Historique</span>
+          <span>Ebooks / Papier / Historique</span>
         </div>
       </div>
+
+      <!-- ✅ Onglets séparés -->
       <nav>
-        <button class="tab active" data-route="liste">Liste</button>
+        <button class="tab active" data-route="ebooks">Ebooks</button>
+        <button class="tab" data-route="papier">Papier</button>
         <button class="tab" data-route="historique">Historique</button>
         <button class="tab" data-route="ajout">Ajouter</button>
       </nav>
     </header>
 
-    <div id="view-liste" class="grid"></div>
+    <!-- ✅ 4 vues -->
+    <div id="view-ebooks" class="grid"></div>
+    <div id="view-papier" class="grid" style="display:none"></div>
     <div id="view-historique" class="grid" style="display:none"></div>
     <div id="view-ajout" class="grid" style="display:none"></div>
   </div>
@@ -315,7 +332,10 @@
       <div class="foot">
         <div class="split" id="modalBadges"></div>
         <div class="split">
-          <button class="btn danger" id="modalDelete">Supprimer</button>
+  <button class="btn ghost" id="modalToggleFormat">Basculer format</button>
+  <button class="btn danger" id="modalDelete">Supprimer</button>
+</div>
+
         </div>
       </div>
     </div>
@@ -324,16 +344,14 @@
 <script>
 /**
  * Webapp "Gestion de livres"
- * - Stockage: localStorage (simple, offline-friendly)
- * - Récup métadonnées: Google Books, fallback Open Library
- *
- * Champs gérés:
- * id, title, authors[], themes[], series, volumeNumber, format ("ebook"|"paper"),
- * summary, coverUrl, isbn, acquired (bool), read (bool), createdAt, readAt
+ * - Stockage: localStorage
+ * - Pages: Ebooks / Papier / Historique / Ajouter
+ * - Récup métadonnées: Google Books + fallback Open Library
  */
 
-const STORAGE_KEY = "bookApp.v1";
+const STORAGE_KEY = "bookApp.v2";
 const state = loadState();
+let currentModalBookId = null;
 
 function uid(){ return Math.random().toString(16).slice(2) + Date.now().toString(16); }
 
@@ -360,7 +378,6 @@ function escapeHtml(str){
 }
 
 function normalizeThemes(input){
-  // "fantasy, roman; SF" -> ["fantasy","roman","SF"]
   return String(input ?? "")
     .split(/[,;|]/g)
     .map(s => s.trim())
@@ -397,69 +414,79 @@ function bookSorters(){
   };
 }
 
+/* ============ ROUTING ============ */
+
 function routeTo(route){
   document.querySelectorAll(".tab").forEach(t=>{
     t.classList.toggle("active", t.dataset.route === route);
   });
-  document.getElementById("view-liste").style.display = route === "liste" ? "" : "none";
+
+  document.getElementById("view-ebooks").style.display = route === "ebooks" ? "" : "none";
+  document.getElementById("view-papier").style.display = route === "papier" ? "" : "none";
   document.getElementById("view-historique").style.display = route === "historique" ? "" : "none";
   document.getElementById("view-ajout").style.display = route === "ajout" ? "" : "none";
-  if(route === "liste") renderListe();
+
+  if(route === "ebooks") renderListeFormat("ebook");
+  if(route === "papier") renderListeFormat("paper");
   if(route === "historique") renderHistorique();
   if(route === "ajout") renderAjout();
 }
 
-/* ============ RENDER: LISTE ============ */
+function refreshCurrentList(){
+  const current = document.querySelector(".tab.active")?.dataset.route || "ebooks";
+  if(current === "ebooks") renderListeFormat("ebook");
+  if(current === "papier") renderListeFormat("paper");
+  if(current === "historique") renderHistorique();
+  if(current === "ajout") renderAjout();
+}
 
-function renderListe(){
-  const root = document.getElementById("view-liste");
-  const books = state.books.filter(b => !b.read);
+/* ============ LISTE PAR FORMAT ============ */
+
+function renderListeFormat(format){
+  const root = (format === "ebook")
+    ? document.getElementById("view-ebooks")
+    : document.getElementById("view-papier");
+
+  const icon = (format === "ebook") ? "📘" : "📗";
+  const label = (format === "ebook") ? "Ebooks (à télécharger)" : "Livres papier (à acheter)";
+
+  const books = state.books.filter(b => !b.read && b.format === format);
 
   root.innerHTML = `
     <div class="panel">
       <h2>
-        <span>📌 À lire / À obtenir</span>
+        <span>${icon} ${escapeHtml(label)}</span>
         <span class="chip purple"><b>${books.length}</b>&nbsp;livre(s)</span>
       </h2>
+
       <div class="content">
         <div class="row">
-          <input class="input" id="qListe" placeholder="Rechercher (titre, auteur, thème, série…)" />
-          <select id="sortListe">
+          <input class="input" id="qListe_${format}" placeholder="Rechercher (titre, auteur, thème, série…)" />
+          <select id="sortListe_${format}">
             <option value="created">Tri : récent</option>
             <option value="author">Tri : auteur</option>
             <option value="theme">Tri : thème</option>
             <option value="tome">Tri : tome (série + n°)</option>
           </select>
-          <select id="filterFormat">
-            <option value="">Format : tous</option>
-            <option value="ebook">📘 Ebook (à télécharger)</option>
-            <option value="paper">📗 Papier (à acheter)</option>
-          </select>
         </div>
-        <div class="hint">
-          Astuce : “Obtenu” = ${escapeHtml("Téléchargé")} si ebook, ${escapeHtml("Acheté")} si papier.
-        </div>
+        <div class="hint">Astuce : “Obtenu” = ${format === "ebook" ? "Téléchargé" : "Acheté"}.</div>
       </div>
+
       <div class="divider"></div>
-      <div id="listeCards" class="list"></div>
+      <div id="listeCards_${format}" class="list"></div>
     </div>
   `;
 
-  const q = root.querySelector("#qListe");
-  const sortSel = root.querySelector("#sortListe");
-  const fmtSel = root.querySelector("#filterFormat");
-  const cards = root.querySelector("#listeCards");
+  const q = root.querySelector(`#qListe_${format}`);
+  const sortSel = root.querySelector(`#sortListe_${format}`);
+  const cards = root.querySelector(`#listeCards_${format}`);
 
   function apply(){
     const query = (q.value||"").trim().toLowerCase();
-    const format = fmtSel.value;
     const sorter = bookSorters()[sortSel.value] || bookSorters().created;
 
     let filtered = books.slice();
 
-    if(format){
-      filtered = filtered.filter(b => b.format === format);
-    }
     if(query){
       filtered = filtered.filter(b => {
         const hay = [
@@ -486,8 +513,6 @@ function renderListe(){
 
   q.addEventListener("input", apply);
   sortSel.addEventListener("change", apply);
-  fmtSel.addEventListener("change", apply);
-
   apply();
 }
 
@@ -501,16 +526,18 @@ function renderBookCard(b){
   return `
     <div class="card" data-open="${escapeHtml(b.id)}" title="Ouvrir la fiche">
       <div class="cover">
-        ${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="Couverture">` : `${icon}`}
+        ${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="Couverture">` : icon}
       </div>
+
       <div class="meta">
         <p class="t">${escapeHtml(b.title || "Sans titre")}</p>
         <p class="a">${escapeHtml(author)}</p>
+
         <div class="badges">
           <span class="badge purple">${icon} ${b.format === "ebook" ? "Ebook" : "Papier"}</span>
           ${series ? `<span class="badge">${escapeHtml(series)}</span>` : ""}
           ${theme ? `<span class="badge">${escapeHtml(theme)}</span>` : ""}
-          ${acquiredLabel ? `<span class="badge ${b.acquired ? "warn" : ""}">${escapeHtml(acquiredLabel)}</span>` : ""}
+          ${acquiredLabel ? `<span class="badge warn">${escapeHtml(acquiredLabel)}</span>` : ""}
         </div>
 
         <div class="actions" data-actions="${escapeHtml(b.id)}">
@@ -537,7 +564,7 @@ function bindCardActions(container){
       if(!book) return;
       book.acquired = cb.checked;
       saveState();
-      renderListe();
+      refreshCurrentList();
     });
   });
 
@@ -550,8 +577,7 @@ function bindCardActions(container){
       book.read = cb.checked;
       book.readAt = cb.checked ? Date.now() : null;
       saveState();
-      // si lu => il doit quitter la liste, donc rerender direct
-      renderListe();
+      refreshCurrentList();
     });
   });
 
@@ -562,7 +588,7 @@ function bindCardActions(container){
   });
 }
 
-/* ============ RENDER: HISTORIQUE ============ */
+/* ============ HISTORIQUE ============ */
 
 function renderHistorique(){
   const root = document.getElementById("view-historique");
@@ -628,7 +654,6 @@ function renderHistorique(){
   sortSel.addEventListener("change", apply);
 
   root.querySelector("#clearRead").addEventListener("click", ()=>{
-    // Supprime uniquement ceux qui sont read=true
     const keep = state.books.filter(b => !b.read);
     state.books = keep;
     saveState();
@@ -638,7 +663,7 @@ function renderHistorique(){
   apply();
 }
 
-/* ============ RENDER: AJOUT ============ */
+/* ============ AJOUT ============ */
 
 function renderAjout(){
   const root = document.getElementById("view-ajout");
@@ -655,9 +680,7 @@ function renderAjout(){
             <option value="paper">📗 Papier (acheter)</option>
           </select>
         </div>
-        <div class="hint">
-          Recherche auto via Google Books (principal) et Open Library (fallback). :contentReference[oaicite:3]{index=3}
-        </div>
+        <div class="hint">Tu choisis le format ici, et le livre ira automatiquement dans la bonne page (Ebooks ou Papier).</div>
       </div>
       <div class="divider"></div>
       <div class="content">
@@ -714,7 +737,6 @@ function renderAjout(){
     status.textContent = "Recherche en cours…";
     results.innerHTML = "";
 
-    // 1) Google Books
     try{
       const google = await searchGoogleBooks(query);
       if(google.length){
@@ -723,11 +745,8 @@ function renderAjout(){
         bindSearchResultButtons(results);
         return;
       }
-    }catch(err){
-      // continue fallback
-    }
+    }catch{}
 
-    // 2) Open Library fallback
     try{
       const ol = await searchOpenLibrary(query);
       if(ol.length){
@@ -736,18 +755,15 @@ function renderAjout(){
         bindSearchResultButtons(results);
         return;
       }
-    }catch(err){
-      // ignore
-    }
+    }catch{}
 
     status.textContent = "Aucun résultat. Essaye un autre mot-clé ou utilise l’ajout manuel.";
   }
 
   function renderSearchResult(b){
-    // b = {title, authors[], summary, coverUrl, isbn, themes[], series, volumeNumber}
     const icon = (formatPick.value === "ebook") ? "📘" : "📗";
     return `
-      <div class="card" data-preview="${escapeHtml(b._previewId)}" title="Prévisualiser">
+      <div class="card">
         <div class="cover">
           ${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="Couverture">` : icon}
         </div>
@@ -768,7 +784,6 @@ function renderAjout(){
     `;
   }
 
-  // stash en mémoire (temp) des résultats
   window.__SEARCH_CACHE = window.__SEARCH_CACHE || new Map();
 
   function bindSearchResultButtons(container){
@@ -779,9 +794,9 @@ function renderAjout(){
         const book = window.__SEARCH_CACHE.get(pid);
         if(!book) return;
 
-        const format = formatPick.value;
-        addBookToLibrary(book, format);
-        status.textContent = "Ajouté ✅ (va dans Liste)";
+        addBookToLibrary(book, formatPick.value);
+        saveState();
+        status.textContent = "Ajouté ✅ (va dans Ebooks ou Papier)";
       });
     });
 
@@ -824,6 +839,7 @@ function renderAjout(){
       summary
     }, format);
 
+    saveState();
     root.querySelector("#resetManual").click();
     alert("Ajouté ✅");
   });
@@ -856,7 +872,7 @@ function addBookToLibrary(meta, format){
     readAt: null
   };
 
-  // Dédup simple : même titre + auteur1 + format + tome
+  // Dédup simple
   const key = (book.title + "|" + (book.authors?.[0]||"") + "|" + book.format + "|" + (book.series||"") + "|" + (book.volumeNumber||"")).toLowerCase();
   const exists = state.books.some(b=>{
     const k = (b.title + "|" + (b.authors?.[0]||"") + "|" + b.format + "|" + (b.series||"") + "|" + (b.volumeNumber||"")).toLowerCase();
@@ -865,19 +881,16 @@ function addBookToLibrary(meta, format){
   if(exists) return;
 
   state.books.unshift(book);
-  saveState();
-  // si on est sur la page ajout, on laisse; sinon ok
 }
 
 /* ============ API: GOOGLE BOOKS ============ */
 
 async function searchGoogleBooks(query){
-  // Endpoint: https://www.googleapis.com/books/v1/volumes?q=...
-  // Doc officielle: Google Books APIs :contentReference[oaicite:4]{index=4}
   const url = new URL("https://www.googleapis.com/books/v1/volumes");
   url.searchParams.set("q", query);
   url.searchParams.set("maxResults", "12");
-  // Optionnel: url.searchParams.set("key", "TA_CLE_API");
+  // Optionnel:
+  // url.searchParams.set("key", "TA_CLE_API");
 
   const res = await fetch(url.toString());
   if(!res.ok) throw new Error("Google Books HTTP " + res.status);
@@ -895,18 +908,7 @@ async function searchGoogleBooks(query){
     const themes = (v.categories || []).slice(0,3);
     const {series, volumeNumber} = inferSeriesAndTome(title, v.subtitle || "");
 
-    const b = {
-      _previewId: uid(),
-      title,
-      authors,
-      summary,
-      coverUrl,
-      isbn,
-      themes,
-      series,
-      volumeNumber
-    };
-    window.__SEARCH_CACHE = window.__SEARCH_CACHE || new Map();
+    const b = { _previewId: uid(), title, authors, summary, coverUrl, isbn, themes, series, volumeNumber };
     window.__SEARCH_CACHE.set(b._previewId, b);
     out.push(b);
   }
@@ -916,12 +918,10 @@ async function searchGoogleBooks(query){
 
 function pickGoogleCover(imageLinks){
   if(!imageLinks) return "";
-  // prefer thumbnail/smallThumbnail
   return imageLinks.thumbnail || imageLinks.smallThumbnail || imageLinks.small || imageLinks.medium || "";
 }
 
 function pickIsbn(industryIdentifiers){
-  // prefer ISBN_13 then ISBN_10
   const byType = {};
   for(const id of industryIdentifiers){
     if(id?.type && id?.identifier) byType[id.type] = id.identifier;
@@ -933,10 +933,9 @@ function stripHtml(html){
   return String(html || "").replace(/<[^>]*>/g, "").trim();
 }
 
-/* ============ API: OPEN LIBRARY (fallback) ============ */
+/* ============ API: OPEN LIBRARY ============ */
 
 async function searchOpenLibrary(query){
-  // Search API: https://openlibrary.org/search.json?q=... :contentReference[oaicite:5]{index=5}
   const url = new URL("https://openlibrary.org/search.json");
   url.searchParams.set("q", query);
   url.searchParams.set("limit", "12");
@@ -951,35 +950,22 @@ async function searchOpenLibrary(query){
     const title = d.title || "";
     const authors = d.author_name ? d.author_name.slice(0,3) : [];
     const isbn = d.isbn ? d.isbn[0] : "";
-    const coverUrl = d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg` : ""; // Covers API :contentReference[oaicite:6]{index=6}
+    const coverUrl = d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg` : "";
     const themes = (d.subject || []).slice(0,3);
     const {series, volumeNumber} = inferSeriesAndTome(title, "");
 
-    const b = {
-      _previewId: uid(),
-      title,
-      authors,
-      summary: "", // Open Library search ne donne pas toujours un résumé; on laisse vide
-      coverUrl,
-      isbn,
-      themes,
-      series,
-      volumeNumber
-    };
-    window.__SEARCH_CACHE = window.__SEARCH_CACHE || new Map();
+    const b = { _previewId: uid(), title, authors, summary: "", coverUrl, isbn, themes, series, volumeNumber };
     window.__SEARCH_CACHE.set(b._previewId, b);
     out.push(b);
   }
   return out;
 }
 
-/* ============ SERIES/TOME inference (simple) ============ */
+/* ============ SERIES/TOME inference ============ */
 function inferSeriesAndTome(title, subtitle){
-  // Tentative simple : détecte "Tome 1", "T.1", "#1" etc.
   const t = (title + " " + subtitle).trim();
   let series = "";
   let volumeNumber = "";
-
   const m = t.match(/(.*?)(?:\s*[-:]\s*)?(?:tome|t\.|vol\.|volume|#)\s*([0-9]{1,3})/i);
   if(m){
     series = (m[1] || "").trim();
@@ -988,11 +974,14 @@ function inferSeriesAndTome(title, subtitle){
   return {series, volumeNumber};
 }
 
-/* ============ MODAL ============ */
+/* ============ MODAL (DETAILS) ============ */
 
 function openModal(id){
   const book = state.books.find(b => b.id === id);
   if(!book) return;
+
+  currentModalBookId = id;
+
   const backdrop = document.getElementById("modalBackdrop");
   const cover = document.getElementById("modalCover");
   const desc = document.getElementById("modalDesc");
@@ -1002,11 +991,11 @@ function openModal(id){
   document.getElementById("modalTitle").textContent = book.title || "Sans titre";
   document.getElementById("modalAuthor").textContent = toAuthorsDisplay(book.authors);
 
-  cover.innerHTML = book.coverUrl ? `<img src="${escapeHtml(book.coverUrl)}" alt="Couverture">` : `<div style="display:grid;place-items:center;height:100%;color:rgba(255,255,255,.35);font-weight:900;font-size:44px">${formatIcon(book)}</div>`;
+  cover.innerHTML = book.coverUrl
+    ? `<img src="${escapeHtml(book.coverUrl)}" alt="Couverture">`
+    : `<div style="display:grid;place-items:center;height:100%;color:rgba(255,255,255,.35);font-weight:900;font-size:44px">${formatIcon(book)}</div>`;
 
-  const lines = [];
-  lines.push(book.summary ? book.summary : "Aucune description trouvée. (Tu peux la compléter via l’ajout manuel.)");
-  desc.innerHTML = lines.map(l => escapeHtml(l)).join("\n");
+  desc.textContent = (book.summary || "Aucune description trouvée.").trim();
 
   badges.innerHTML = `
     <span class="chip purple"><b>${formatIcon(book)}</b>&nbsp;${book.format === "ebook" ? "Ebook" : "Papier"}</span>
@@ -1017,21 +1006,32 @@ function openModal(id){
     ${book.isbn ? `<span class="chip"><b>ISBN</b>&nbsp;${escapeHtml(book.isbn)}</span>` : ""}
   `;
 
-  document.getElementById("modalDelete").onclick = ()=>{
+  // ✅ Toggle format button (visible here)
+  const toggleBtn = document.getElementById("modalToggleFormat");
+  toggleBtn.style.display = "";
+  toggleBtn.textContent = (book.format === "ebook") ? "Passer en Papier 📗" : "Passer en Ebook 📘";
+  toggleBtn.onclick = () => {
+    book.format = (book.format === "ebook") ? "paper" : "ebook";
+    saveState();
+    openModal(book.id);     // refresh modal
+    refreshCurrentList();   // refresh lists
+  };
+
+  // Delete
+  const delBtn = document.getElementById("modalDelete");
+  delBtn.style.display = "";
+  delBtn.onclick = ()=>{
     if(!confirm("Supprimer ce livre ?")) return;
     state.books = state.books.filter(b => b.id !== id);
     saveState();
     closeModal();
-    // refresh current view
-    const current = document.querySelector(".tab.active")?.dataset.route || "liste";
-    routeTo(current);
+    refreshCurrentList();
   };
 
   backdrop.style.display = "flex";
 }
 
 function openPreviewModal(meta, format){
-  // Preview (pas encore dans la librairie)
   const backdrop = document.getElementById("modalBackdrop");
   const cover = document.getElementById("modalCover");
   const desc = document.getElementById("modalDesc");
@@ -1043,7 +1043,10 @@ function openPreviewModal(meta, format){
   document.getElementById("modalTitle").textContent = meta.title || "Sans titre";
   document.getElementById("modalAuthor").textContent = toAuthorsDisplay(meta.authors);
 
-  cover.innerHTML = meta.coverUrl ? `<img src="${escapeHtml(meta.coverUrl)}" alt="Couverture">` : `<div style="display:grid;place-items:center;height:100%;color:rgba(255,255,255,.35);font-weight:900;font-size:44px">${icon}</div>`;
+  cover.innerHTML = meta.coverUrl
+    ? `<img src="${escapeHtml(meta.coverUrl)}" alt="Couverture">`
+    : `<div style="display:grid;place-items:center;height:100%;color:rgba(255,255,255,.35);font-weight:900;font-size:44px">${icon}</div>`;
+
   desc.textContent = (meta.summary || "Aucune description trouvée pour ce résultat.").trim();
 
   badges.innerHTML = `
@@ -1053,37 +1056,35 @@ function openPreviewModal(meta, format){
     ${meta.isbn ? `<span class="chip"><b>ISBN</b>&nbsp;${escapeHtml(meta.isbn)}</span>` : ""}
   `;
 
-  // bouton supprimer = cacher (preview)
+  // ✅ On cache toggle + delete en preview
+  document.getElementById("modalToggleFormat").style.display = "none";
   document.getElementById("modalDelete").style.display = "none";
 
   backdrop.style.display = "flex";
 }
 
 function closeModal(){
-  const backdrop = document.getElementById("modalBackdrop");
-  backdrop.style.display = "none";
-  document.getElementById("modalDelete").style.display = "";
+  document.getElementById("modalBackdrop").style.display = "none";
 }
 
+/* Modal close */
 document.getElementById("modalClose").addEventListener("click", closeModal);
 document.getElementById("modalBackdrop").addEventListener("click", (e)=>{
   if(e.target.id === "modalBackdrop") closeModal();
 });
 
-/* ============ NAV ============ */
+/* Tabs */
 document.querySelectorAll(".tab").forEach(t=>{
   t.addEventListener("click", ()=> routeTo(t.dataset.route));
 });
 
-/* ============ PWA: service worker ============ */
+/* Service worker */
 if("serviceWorker" in navigator){
   window.addEventListener("load", ()=>{
     navigator.serviceWorker.register("./sw.js").catch(()=>{});
   });
 }
 
-/* Init */
-routeTo("liste");
+/* INIT */
+routeTo("ebooks");
 </script>
-</body>
-</html>

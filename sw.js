@@ -1,5 +1,5 @@
-const CACHE = "bookapp-cache-v1";
-const ASSETS = ["./", "./index.html", "./manifest.json"];
+const CACHE = "bookapp-cache-v2";
+const ASSETS = ["./", "./index.html", "./manifest.json", "./sw.js", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -18,7 +18,6 @@ self.addEventListener("fetch", (event) => {
   const req = event.request;
   event.respondWith(
     caches.match(req).then((cached) => cached || fetch(req).then((res) => {
-      // cache only same-origin GET
       try{
         const url = new URL(req.url);
         if(req.method === "GET" && url.origin === location.origin){
