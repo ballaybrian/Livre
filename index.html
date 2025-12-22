@@ -155,7 +155,7 @@
     }
     .card:hover{transform: translateY(-1px)}
 
-    /* ✅ Couverture miniature (à côté du titre) */
+    /* ✅ Couverture miniature */
     .cover{
       width:52px;
       height:78px;
@@ -224,6 +224,61 @@
       font-size:13px;
     }
 
+    /* ✅ HOME */
+    .home{
+      min-height: calc(100vh - 160px);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: 10px 0 30px;
+    }
+    .home-grid{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(160px, 1fr));
+      gap:20px;
+      width:100%;
+      max-width:460px;
+    }
+    .home-btn{
+      position:relative;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      padding:28px 18px;
+      border-radius:22px;
+      border:1px solid var(--border);
+      background: rgba(23,23,36,.75);
+      box-shadow: var(--shadow);
+      cursor:pointer;
+      transition: transform .08s ease, background .2s ease;
+      user-select:none;
+      text-align:center;
+    }
+    .home-btn:hover{
+      transform: translateY(-2px);
+      background: rgba(109,40,217,.22);
+    }
+    .home-btn .emoji{font-size:34px}
+    .home-btn b{font-size:14px; letter-spacing:.3px}
+    .home-badge{
+      position:absolute;
+      top:10px; right:10px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      background: rgba(0,0,0,.25);
+      color: var(--text);
+      font-size:12px;
+      font-weight:900;
+      min-width: 34px;
+      text-align:center;
+    }
+    .home-badge.ok{border-color: rgba(34,197,94,.4); background: rgba(34,197,94,.14)}
+    .home-badge.purple{border-color: rgba(109,40,217,.45); background: rgba(109,40,217,.16)}
+    .home-badge.warn{border-color: rgba(245,158,11,.4); background: rgba(245,158,11,.14)}
+
     /* Modal */
     .modal-backdrop{
       position:fixed; inset:0;
@@ -281,6 +336,7 @@
     @media (max-width:720px){
       .modal .body{grid-template-columns: 1fr; }
       .modal .bigcover{width: 100%; height: 320px}
+      .home-grid{grid-template-columns: 1fr; max-width: 420px;}
     }
   </style>
 </head>
@@ -292,21 +348,23 @@
         <div class="logo">📚</div>
         <div class="title">
           <b>Ma Bibliothèque</b>
-          <span>Ebooks / Papier / Historique</span>
+          <span>Accueil / Ebooks / Papier / Historique</span>
         </div>
       </div>
 
-      <!-- ✅ Onglets séparés -->
+      <!-- ✅ Onglets -->
       <nav>
-        <button class="tab active" data-route="ebooks">Ebooks</button>
+        <button class="tab active" data-route="home">Accueil</button>
+        <button class="tab" data-route="ebooks">Ebooks</button>
         <button class="tab" data-route="papier">Papier</button>
         <button class="tab" data-route="historique">Historique</button>
         <button class="tab" data-route="ajout">Ajouter</button>
       </nav>
     </header>
 
-    <!-- ✅ 4 vues -->
-    <div id="view-ebooks" class="grid"></div>
+    <!-- ✅ 5 vues -->
+    <div id="view-home" class="grid"></div>
+    <div id="view-ebooks" class="grid" style="display:none"></div>
     <div id="view-papier" class="grid" style="display:none"></div>
     <div id="view-historique" class="grid" style="display:none"></div>
     <div id="view-ajout" class="grid" style="display:none"></div>
@@ -332,10 +390,8 @@
       <div class="foot">
         <div class="split" id="modalBadges"></div>
         <div class="split">
-  <button class="btn ghost" id="modalToggleFormat">Basculer format</button>
-  <button class="btn danger" id="modalDelete">Supprimer</button>
-</div>
-
+          <button class="btn ghost" id="modalToggleFormat">Basculer format</button>
+          <button class="btn danger" id="modalDelete">Supprimer</button>
         </div>
       </div>
     </div>
@@ -343,13 +399,15 @@
 
 <script>
 /**
- * Webapp "Gestion de livres"
- * - Stockage: localStorage
- * - Pages: Ebooks / Papier / Historique / Ajouter
- * - Récup métadonnées: Google Books + fallback Open Library
+ * Ma Bibliothèque - v3
+ * - Accueil (4 boutons centrés + compteurs)
+ * - Pages séparées Ebooks/Papier
+ * - Historique (Lu)
+ * - Ajout (Google Books + fallback Open Library)
+ * - Modal + bascule format Ebook ⇄ Papier
  */
 
-const STORAGE_KEY = "bookApp.v2";
+const STORAGE_KEY = "bookApp.v3";
 const state = loadState();
 let currentModalBookId = null;
 
@@ -366,37 +424,25 @@ function loadState(){
     return { books: [] };
   }
 }
-
-function saveState(){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
+function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
 
 function escapeHtml(str){
   return String(str ?? "").replace(/[&<>"']/g, s => ({
     "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"
   }[s]));
 }
-
 function normalizeThemes(input){
-  return String(input ?? "")
-    .split(/[,;|]/g)
-    .map(s => s.trim())
-    .filter(Boolean);
+  return String(input ?? "").split(/[,;|]/g).map(s => s.trim()).filter(Boolean);
 }
-
 function toAuthorsDisplay(authors){
   if(!authors || !authors.length) return "Auteur inconnu";
   return authors.join(", ");
 }
-
 function formatBadgeForAcquired(book){
   if(!book.acquired) return null;
   return book.format === "ebook" ? "Téléchargé" : "Acheté";
 }
-
-function formatIcon(book){
-  return book.format === "ebook" ? "📘" : "📗";
-}
+function formatIcon(book){ return book.format === "ebook" ? "📘" : "📗"; }
 
 function bookSorters(){
   return {
@@ -414,6 +460,16 @@ function bookSorters(){
   };
 }
 
+/* ============ STATS ============ */
+
+function getStats(){
+  const unreadEbooks = state.books.filter(b => !b.read && b.format === "ebook").length;
+  const unreadPaper  = state.books.filter(b => !b.read && b.format === "paper").length;
+  const readTotal    = state.books.filter(b => b.read).length;
+  const total        = state.books.length;
+  return { unreadEbooks, unreadPaper, readTotal, total };
+}
+
 /* ============ ROUTING ============ */
 
 function routeTo(route){
@@ -421,23 +477,86 @@ function routeTo(route){
     t.classList.toggle("active", t.dataset.route === route);
   });
 
+  document.getElementById("view-home").style.display = route === "home" ? "" : "none";
   document.getElementById("view-ebooks").style.display = route === "ebooks" ? "" : "none";
   document.getElementById("view-papier").style.display = route === "papier" ? "" : "none";
   document.getElementById("view-historique").style.display = route === "historique" ? "" : "none";
   document.getElementById("view-ajout").style.display = route === "ajout" ? "" : "none";
 
+  if(route === "home") renderHome();
   if(route === "ebooks") renderListeFormat("ebook");
   if(route === "papier") renderListeFormat("paper");
   if(route === "historique") renderHistorique();
   if(route === "ajout") renderAjout();
 }
 
-function refreshCurrentList(){
-  const current = document.querySelector(".tab.active")?.dataset.route || "ebooks";
-  if(current === "ebooks") renderListeFormat("ebook");
-  if(current === "papier") renderListeFormat("paper");
-  if(current === "historique") renderHistorique();
-  if(current === "ajout") renderAjout();
+function refreshCurrentView(){
+  const current = document.querySelector(".tab.active")?.dataset.route || "home";
+  routeTo(current);
+}
+
+/* ============ HOME ============ */
+
+function renderHome(){
+  const root = document.getElementById("view-home");
+  const s = getStats();
+
+  root.innerHTML = `
+    <div class="panel">
+      <h2>
+        <span>🏠 Accueil</span>
+        <span class="chip purple"><b>${s.total}</b>&nbsp;livre(s) au total</span>
+      </h2>
+      <div class="content">
+        <div class="hint">Choisis une section. Les compteurs se mettent à jour automatiquement.</div>
+      </div>
+    </div>
+
+    <div class="home">
+      <div class="home-grid">
+        <div class="home-btn" id="homeEbooks" role="button" tabindex="0">
+          <div class="home-badge purple">${s.unreadEbooks}</div>
+          <div class="emoji">📘</div>
+          <b>Ebooks</b>
+        </div>
+
+        <div class="home-btn" id="homePapier" role="button" tabindex="0">
+          <div class="home-badge purple">${s.unreadPaper}</div>
+          <div class="emoji">📗</div>
+          <b>Papier</b>
+        </div>
+
+        <div class="home-btn" id="homeHist" role="button" tabindex="0">
+          <div class="home-badge ok">${s.readTotal}</div>
+          <div class="emoji">🕘</div>
+          <b>Historique</b>
+        </div>
+
+        <div class="home-btn" id="homeAdd" role="button" tabindex="0">
+          <div class="home-badge warn">+</div>
+          <div class="emoji">➕</div>
+          <b>Ajouter</b>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const go = (r)=> routeTo(r);
+
+  document.getElementById("homeEbooks").onclick = ()=> go("ebooks");
+  document.getElementById("homePapier").onclick = ()=> go("papier");
+  document.getElementById("homeHist").onclick = ()=> go("historique");
+  document.getElementById("homeAdd").onclick = ()=> go("ajout");
+
+  // accessibilité clavier
+  ["homeEbooks","homePapier","homeHist","homeAdd"].forEach(id=>{
+    document.getElementById(id).addEventListener("keydown", (e)=>{
+      if(e.key === "Enter" || e.key === " "){
+        e.preventDefault();
+        document.getElementById(id).click();
+      }
+    });
+  });
 }
 
 /* ============ LISTE PAR FORMAT ============ */
@@ -458,7 +577,6 @@ function renderListeFormat(format){
         <span>${icon} ${escapeHtml(label)}</span>
         <span class="chip purple"><b>${books.length}</b>&nbsp;livre(s)</span>
       </h2>
-
       <div class="content">
         <div class="row">
           <input class="input" id="qListe_${format}" placeholder="Rechercher (titre, auteur, thème, série…)" />
@@ -468,14 +586,16 @@ function renderListeFormat(format){
             <option value="theme">Tri : thème</option>
             <option value="tome">Tri : tome (série + n°)</option>
           </select>
+          <button class="btn ghost" id="backHome_${format}">Accueil</button>
         </div>
         <div class="hint">Astuce : “Obtenu” = ${format === "ebook" ? "Téléchargé" : "Acheté"}.</div>
       </div>
-
       <div class="divider"></div>
       <div id="listeCards_${format}" class="list"></div>
     </div>
   `;
+
+  root.querySelector(`#backHome_${format}`).onclick = ()=> routeTo("home");
 
   const q = root.querySelector(`#qListe_${format}`);
   const sortSel = root.querySelector(`#sortListe_${format}`);
@@ -540,7 +660,7 @@ function renderBookCard(b){
           ${acquiredLabel ? `<span class="badge warn">${escapeHtml(acquiredLabel)}</span>` : ""}
         </div>
 
-        <div class="actions" data-actions="${escapeHtml(b.id)}">
+        <div class="actions">
           <label class="check ${b.acquired ? "on" : ""}" title="Marquer comme obtenu">
             <input type="checkbox" ${b.acquired ? "checked" : ""} data-toggle="acquired" data-id="${escapeHtml(b.id)}"/>
             <span>${b.format === "ebook" ? "Téléchargé" : "Acheté"}</span>
@@ -564,7 +684,7 @@ function bindCardActions(container){
       if(!book) return;
       book.acquired = cb.checked;
       saveState();
-      refreshCurrentList();
+      refreshCurrentView();
     });
   });
 
@@ -577,7 +697,7 @@ function bindCardActions(container){
       book.read = cb.checked;
       book.readAt = cb.checked ? Date.now() : null;
       saveState();
-      refreshCurrentList();
+      refreshCurrentView();
     });
   });
 
@@ -609,7 +729,8 @@ function renderHistorique(){
             <option value="theme">Tri : thème</option>
             <option value="tome">Tri : tome (série + n°)</option>
           </select>
-          <button class="btn danger" id="clearRead">Vider l'historique</button>
+          <button class="btn ghost" id="backHome_hist">Accueil</button>
+          <button class="btn danger" id="clearRead">Vider</button>
         </div>
         <div class="hint">Les livres marqués “Lu” arrivent ici automatiquement.</div>
       </div>
@@ -617,6 +738,8 @@ function renderHistorique(){
       <div id="histCards" class="list"></div>
     </div>
   `;
+
+  root.querySelector("#backHome_hist").onclick = ()=> routeTo("home");
 
   const q = root.querySelector("#qHist");
   const sortSel = root.querySelector("#sortHist");
@@ -654,8 +777,8 @@ function renderHistorique(){
   sortSel.addEventListener("change", apply);
 
   root.querySelector("#clearRead").addEventListener("click", ()=>{
-    const keep = state.books.filter(b => !b.read);
-    state.books = keep;
+    if(!confirm("Vider l'historique (supprimer tous les livres marqués Lu) ?")) return;
+    state.books = state.books.filter(b => !b.read);
     saveState();
     renderHistorique();
   });
@@ -679,6 +802,7 @@ function renderAjout(){
             <option value="ebook">📘 Ebook (télécharger)</option>
             <option value="paper">📗 Papier (acheter)</option>
           </select>
+          <button class="btn ghost" id="backHome_add">Accueil</button>
         </div>
         <div class="hint">Tu choisis le format ici, et le livre ira automatiquement dans la bonne page (Ebooks ou Papier).</div>
       </div>
@@ -717,6 +841,8 @@ function renderAjout(){
       </div>
     </div>
   `;
+
+  root.querySelector("#backHome_add").onclick = ()=> routeTo("home");
 
   const q = root.querySelector("#searchQuery");
   const btn = root.querySelector("#searchBtn");
@@ -796,7 +922,7 @@ function renderAjout(){
 
         addBookToLibrary(book, formatPick.value);
         saveState();
-        status.textContent = "Ajouté ✅ (va dans Ebooks ou Papier)";
+        status.textContent = "Ajouté ✅";
       });
     });
 
@@ -811,7 +937,6 @@ function renderAjout(){
     });
   }
 
-  // Manual
   root.querySelector("#addManual").addEventListener("click", ()=>{
     const title = root.querySelector("#mTitle").value.trim();
     const author = root.querySelector("#mAuthor").value.trim();
@@ -823,10 +948,7 @@ function renderAjout(){
     const summary = root.querySelector("#mSummary").value.trim();
     const format = root.querySelector("#mFormat").value;
 
-    if(!title){
-      alert("Titre obligatoire.");
-      return;
-    }
+    if(!title){ alert("Titre obligatoire."); return; }
 
     addBookToLibrary({
       title,
@@ -872,7 +994,7 @@ function addBookToLibrary(meta, format){
     readAt: null
   };
 
-  // Dédup simple
+  // dédup simple
   const key = (book.title + "|" + (book.authors?.[0]||"") + "|" + book.format + "|" + (book.series||"") + "|" + (book.volumeNumber||"")).toLowerCase();
   const exists = state.books.some(b=>{
     const k = (b.title + "|" + (b.authors?.[0]||"") + "|" + b.format + "|" + (b.series||"") + "|" + (b.volumeNumber||"")).toLowerCase();
@@ -889,8 +1011,7 @@ async function searchGoogleBooks(query){
   const url = new URL("https://www.googleapis.com/books/v1/volumes");
   url.searchParams.set("q", query);
   url.searchParams.set("maxResults", "12");
-  // Optionnel:
-  // url.searchParams.set("key", "TA_CLE_API");
+  // Optionnel: url.searchParams.set("key", "TA_CLE_API");
 
   const res = await fetch(url.toString());
   if(!res.ok) throw new Error("Google Books HTTP " + res.status);
@@ -915,12 +1036,10 @@ async function searchGoogleBooks(query){
 
   return out;
 }
-
 function pickGoogleCover(imageLinks){
   if(!imageLinks) return "";
   return imageLinks.thumbnail || imageLinks.smallThumbnail || imageLinks.small || imageLinks.medium || "";
 }
-
 function pickIsbn(industryIdentifiers){
   const byType = {};
   for(const id of industryIdentifiers){
@@ -928,7 +1047,6 @@ function pickIsbn(industryIdentifiers){
   }
   return byType.ISBN_13 || byType.ISBN_10 || "";
 }
-
 function stripHtml(html){
   return String(html || "").replace(/<[^>]*>/g, "").trim();
 }
@@ -974,7 +1092,7 @@ function inferSeriesAndTome(title, subtitle){
   return {series, volumeNumber};
 }
 
-/* ============ MODAL (DETAILS) ============ */
+/* ============ MODAL ============ */
 
 function openModal(id){
   const book = state.books.find(b => b.id === id);
@@ -1006,15 +1124,15 @@ function openModal(id){
     ${book.isbn ? `<span class="chip"><b>ISBN</b>&nbsp;${escapeHtml(book.isbn)}</span>` : ""}
   `;
 
-  // ✅ Toggle format button (visible here)
+  // Toggle format
   const toggleBtn = document.getElementById("modalToggleFormat");
   toggleBtn.style.display = "";
   toggleBtn.textContent = (book.format === "ebook") ? "Passer en Papier 📗" : "Passer en Ebook 📘";
   toggleBtn.onclick = () => {
     book.format = (book.format === "ebook") ? "paper" : "ebook";
     saveState();
-    openModal(book.id);     // refresh modal
-    refreshCurrentList();   // refresh lists
+    openModal(book.id);
+    refreshCurrentView();
   };
 
   // Delete
@@ -1025,7 +1143,7 @@ function openModal(id){
     state.books = state.books.filter(b => b.id !== id);
     saveState();
     closeModal();
-    refreshCurrentList();
+    refreshCurrentView();
   };
 
   backdrop.style.display = "flex";
@@ -1056,7 +1174,6 @@ function openPreviewModal(meta, format){
     ${meta.isbn ? `<span class="chip"><b>ISBN</b>&nbsp;${escapeHtml(meta.isbn)}</span>` : ""}
   `;
 
-  // ✅ On cache toggle + delete en preview
   document.getElementById("modalToggleFormat").style.display = "none";
   document.getElementById("modalDelete").style.display = "none";
 
@@ -1067,7 +1184,7 @@ function closeModal(){
   document.getElementById("modalBackdrop").style.display = "none";
 }
 
-/* Modal close */
+/* modal close */
 document.getElementById("modalClose").addEventListener("click", closeModal);
 document.getElementById("modalBackdrop").addEventListener("click", (e)=>{
   if(e.target.id === "modalBackdrop") closeModal();
@@ -1078,7 +1195,7 @@ document.querySelectorAll(".tab").forEach(t=>{
   t.addEventListener("click", ()=> routeTo(t.dataset.route));
 });
 
-/* Service worker */
+/* SW */
 if("serviceWorker" in navigator){
   window.addEventListener("load", ()=>{
     navigator.serviceWorker.register("./sw.js").catch(()=>{});
@@ -1086,5 +1203,7 @@ if("serviceWorker" in navigator){
 }
 
 /* INIT */
-routeTo("ebooks");
+routeTo("home");
 </script>
+</body>
+</html>
