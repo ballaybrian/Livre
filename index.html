@@ -14,7 +14,6 @@
       --text:#ffffff;
       --muted:rgba(255,255,255,.78);
       --panel: rgba(0,0,0,.16);
-      --panel2: rgba(0,0,0,.22);
       --border: rgba(255,255,255,.16);
       --shadow: 0 14px 34px rgba(0,0,0,.35);
       --radius: 18px;
@@ -32,51 +31,36 @@
     .view{display:none}
     .view.active{display:block}
 
-    /* Top title row per page (no global header) */
-    .topbar{
+    /* ✅ NEW: centered brand (no bars) */
+    .brand-center{
       display:flex;
+      flex-direction:column;
       align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      padding:14px 16px;
-      border-radius: var(--radius2);
-      background: var(--panel);
+      justify-content:center;
+      gap:10px;
+      padding: 8px 0 18px;
+      text-align:center;
+    }
+    .brand-center img{
+      width:70px; height:70px;
+      border-radius: 22px;
       border:1px solid var(--border);
+      background: rgba(0,0,0,.18);
       box-shadow: var(--shadow);
     }
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      min-width:0;
-    }
-    .brand img{
-      width:44px; height:44px;
-      border-radius: 14px;
-      border:1px solid var(--border);
-      background: rgba(0,0,0,.2);
-      flex:0 0 auto;
-    }
-    .brand .txt{min-width:0}
-    .brand .txt b{
-      display:block;
-      font-size:16px;
+    .brand-center .name{
+      font-weight:1000;
+      font-size:20px;
       color: var(--pink);
       letter-spacing:.2px;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
     }
-    .brand .txt span{
-      display:block;
+    .brand-center .sub{
       font-size:12px;
       color: var(--muted);
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-      margin-top:2px;
+      margin-top:-4px;
     }
 
+    /* ✅ Buttons = Pink */
     .btn{
       border:none;
       border-radius: 14px;
@@ -90,19 +74,17 @@
       align-items:center;
       gap:8px;
     }
-    .btn.ghost{
-      background: rgba(0,0,0,.18);
-      color: #fff;
-      border:1px solid var(--border);
-      box-shadow:none;
-    }
+    .btn:active{transform: translateY(1px)}
+    .btn.small{padding:9px 11px; font-size:13px}
+
+    /* Danger stays red */
     .btn.danger{
       background: rgba(239,68,68,.92);
       color:#fff;
     }
 
     .panel{
-      margin-top:14px;
+      margin-top:12px;
       border:1px solid var(--border);
       background: var(--panel);
       border-radius: var(--radius2);
@@ -138,14 +120,14 @@
     textarea{min-height:100px; resize: vertical}
     .hint{color: var(--muted); font-size:12px; margin-top:8px; line-height:1.35}
 
-    /* Home buttons */
+    /* Home */
     .home{
-      margin-top:14px;
-      min-height: calc(100vh - 170px);
+      margin-top:8px;
+      min-height: calc(100vh - 200px);
       display:flex;
       align-items:center;
       justify-content:center;
-      padding: 8px 0 26px;
+      padding: 6px 0 26px;
     }
     .home-grid{
       display:grid;
@@ -223,22 +205,28 @@
     .meta .t{margin:0 0 4px 0; font-weight:900; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
     .meta .a{margin:0 0 8px 0; font-size:12px; color: var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
     .actions{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+
     .chip{
       display:inline-flex;
       gap:8px;
       align-items:center;
-      padding:7px 10px;
+      padding:9px 12px;
       border-radius:999px;
-      border:1px solid var(--border);
-      background: rgba(0,0,0,.18);
-      color: #fff;
+      border:1px solid rgba(242,184,198,.65);
+      background: var(--pink);
+      color:#2a2a2a;
       font-size:12px;
-      font-weight:900;
+      font-weight:1000;
       user-select:none;
       cursor:pointer;
+      box-shadow: 0 10px 20px rgba(0,0,0,.18);
     }
-    .chip.pink{background: rgba(242,184,198,.22); border-color: rgba(242,184,198,.45); color:#2a2a2a}
-    .chip.danger{background: rgba(239,68,68,.18); border-color: rgba(239,68,68,.45)}
+    .chip.danger{
+      background: rgba(239,68,68,.92);
+      border-color: rgba(239,68,68,.55);
+      color:#fff;
+    }
+
     .empty{padding: 22px 16px; color: var(--muted); text-align:center; font-size:13px}
 
     /* Modal */
@@ -286,7 +274,7 @@
       border-top:1px solid var(--border);
       padding:12px 16px;
       display:flex;
-      justify-content:space-between;
+      justify-content:flex-end;
       gap:10px;
       flex-wrap:wrap;
       align-items:center;
@@ -302,22 +290,11 @@
 
 <body>
   <div class="wrap">
-    <!-- HOME -->
     <div id="view-home" class="view active"></div>
-
-    <!-- EBOOKS -->
     <div id="view-ebooks" class="view"></div>
-
-    <!-- WISHLIST -->
     <div id="view-wishlist" class="view"></div>
-
-    <!-- PAL -->
     <div id="view-pal" class="view"></div>
-
-    <!-- READ -->
     <div id="view-read" class="view"></div>
-
-    <!-- ADD -->
     <div id="view-add" class="view"></div>
   </div>
 
@@ -329,7 +306,7 @@
           <b id="modalTitle">—</b>
           <div id="modalAuthor" style="color:rgba(255,255,255,.78);font-size:12px;margin-top:2px">—</div>
         </div>
-        <button class="btn ghost" id="modalClose">Fermer</button>
+        <button class="btn small" id="modalClose">Fermer</button>
       </div>
 
       <div class="body">
@@ -341,23 +318,20 @@
       </div>
 
       <div class="mfoot">
-        <div id="modalContext"></div>
-        <div style="display:flex; gap:8px; flex-wrap:wrap">
-          <button class="btn danger" id="modalDelete">Supprimer</button>
-        </div>
+        <button class="btn danger" id="modalDelete">Supprimer</button>
       </div>
     </div>
   </div>
 
 <script>
-/* Books By Siana - v4 */
+/* Books By Siana - v5 */
 
-const STORAGE_KEY = "bbs.books.v4";
+const STORAGE_KEY = "bbs.books.v5";
 const state = loadState();
+let currentRoute = "home";
 let currentModalBookId = null;
 
 function uid(){ return Math.random().toString(16).slice(2) + Date.now().toString(16); }
-
 function loadState(){
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -383,16 +357,10 @@ function toAuthorsDisplay(authors){
 function normalizeThemes(input){
   return String(input ?? "").split(/[,;|]/g).map(s => s.trim()).filter(Boolean);
 }
+function formatIcon(book){ return book.format === "ebook" ? "📘" : "🎀"; }
+function formatFormatLabel(book){ return book.format === "ebook" ? "Ebook" : "Wishlist"; }
 
-function formatIcon(book){
-  return book.format === "ebook" ? "📘" : "🎀"; // wishlist = 🎀
-}
-function formatFormatLabel(book){
-  return book.format === "ebook" ? "Ebook" : "Wishlist";
-}
-
-/* ===== routing without top bar ===== */
-let currentRoute = "home";
+/* ===== routing ===== */
 function show(route){
   currentRoute = route;
   document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
@@ -407,6 +375,17 @@ function show(route){
 }
 function backToHome(){ show("home"); }
 
+/* ===== centered brand block ===== */
+function brandCenter(subtitle){
+  return `
+    <div class="brand-center">
+      <img src="./bbs-logo.png" alt="BBS">
+      <div class="name">Books By Siana</div>
+      <div class="sub">${escapeHtml(subtitle)}</div>
+    </div>
+  `;
+}
+
 /* ===== stats ===== */
 function getStats(){
   const ebooks = state.books.filter(b => b.format === "ebook" && !b.read && !b.acquired).length;
@@ -416,39 +395,13 @@ function getStats(){
   return { ebooks, wishlist, pal, read, total: state.books.length };
 }
 
-/* ===== common topbar ===== */
-function topbarHTML(subtitle, withBack=true){
-  return `
-    <div class="topbar">
-      <div class="brand">
-        <img src="./bbs-logo.png" alt="BBS">
-        <div class="txt">
-          <b>Books By Siana</b>
-          <span>${escapeHtml(subtitle)}</span>
-        </div>
-      </div>
-      ${withBack ? `<button class="btn ghost" id="btnBack">← Retour</button>` : ``}
-    </div>
-  `;
-}
-
 /* ===== HOME ===== */
 function renderHome(){
   const root = document.getElementById("view-home");
   const s = getStats();
 
   root.innerHTML = `
-    ${topbarHTML("Accueil", false)}
-
-    <div class="panel">
-      <h2>
-        <span>Tableau de bord</span>
-        <span style="color:rgba(255,255,255,.78);font-size:12px;font-weight:900">${s.total} livre(s)</span>
-      </h2>
-      <div class="content">
-        <div class="hint">Ebooks/Wishlist = livres à obtenir. PAL = livres obtenus (à lire). Livres Lus = terminé.</div>
-      </div>
-    </div>
+    ${brandCenter("Accueil")}
 
     <div class="home">
       <div class="home-grid">
@@ -488,7 +441,7 @@ function renderHome(){
   root.querySelector("#goAdd").onclick = ()=> show("add");
 }
 
-/* ===== Lists: Ebooks & Wishlist (NOT acquired, NOT read) ===== */
+/* ===== Lists: Ebooks & Wishlist ===== */
 function renderList(kind){
   const root = document.getElementById("view-"+kind);
   const isEbook = kind === "ebooks";
@@ -499,7 +452,13 @@ function renderList(kind){
   const books = state.books.filter(b => b.format === format && !b.read && !b.acquired);
 
   root.innerHTML = `
-    ${topbarHTML(subtitle, true)}
+    ${brandCenter(subtitle)}
+
+    <div class="row" style="justify-content:center; margin-bottom:6px">
+      <button class="btn" id="btnBack">← Retour</button>
+      <button class="btn" onclick="show('add')">➕ Ajouter</button>
+      <button class="btn" onclick="show('pal')">📚 PAL</button>
+    </div>
 
     <div class="panel">
       <h2>
@@ -551,7 +510,7 @@ function renderList(kind){
     }
 
     cards.innerHTML = filtered.map(b => renderCardObtainable(b, obtainLabel)).join("");
-    bindCards(cards, { showObtain:true, obtainLabel, showRead:false, showDelete:true });
+    bindCards(cards);
   }
 
   q.addEventListener("input", apply);
@@ -571,7 +530,7 @@ function renderCardObtainable(b, obtainLabel){
         <p class="t">${escapeHtml(b.title || "Sans titre")}</p>
         <p class="a">${escapeHtml(author)}</p>
         <div class="actions">
-          <span class="chip pink" data-action="obtain" data-id="${escapeHtml(b.id)}">✓ ${escapeHtml(obtainLabel)}</span>
+          <span class="chip" data-action="obtain" data-id="${escapeHtml(b.id)}">✓ ${escapeHtml(obtainLabel)}</span>
           <span class="chip danger" data-action="delete" data-id="${escapeHtml(b.id)}">🗑 Supprimer</span>
         </div>
       </div>
@@ -585,7 +544,14 @@ function renderPAL(){
   const books = state.books.filter(b => b.acquired && !b.read);
 
   root.innerHTML = `
-    ${topbarHTML("PAL (à lire)", true)}
+    ${brandCenter("PAL (à lire)")}
+
+    <div class="row" style="justify-content:center; margin-bottom:6px">
+      <button class="btn" id="btnBack">← Retour</button>
+      <button class="btn" onclick="show('ebooks')">📘 Ebooks</button>
+      <button class="btn" onclick="show('wishlist')">🎀 Wishlist</button>
+      <button class="btn" onclick="show('read')">✅ Livres Lus</button>
+    </div>
 
     <div class="panel">
       <h2>
@@ -637,7 +603,7 @@ function renderPAL(){
     }
 
     cards.innerHTML = filtered.map(b => renderCardPAL(b)).join("");
-    bindCards(cards, { showObtain:false, showRead:true, showDelete:true });
+    bindCards(cards);
   }
 
   q.addEventListener("input", apply);
@@ -657,7 +623,7 @@ function renderCardPAL(b){
         <p class="t">${escapeHtml(b.title || "Sans titre")}</p>
         <p class="a">${escapeHtml(author)}</p>
         <div class="actions">
-          <span class="chip pink" data-action="read" data-id="${escapeHtml(b.id)}">✅ Lu</span>
+          <span class="chip" data-action="read" data-id="${escapeHtml(b.id)}">✅ Lu</span>
           <span class="chip danger" data-action="delete" data-id="${escapeHtml(b.id)}">🗑 Supprimer</span>
         </div>
       </div>
@@ -665,13 +631,19 @@ function renderCardPAL(b){
   `;
 }
 
-/* ===== READ (read == true) ===== */
+/* ===== READ ===== */
 function renderRead(){
   const root = document.getElementById("view-read");
   const books = state.books.filter(b => b.read);
 
   root.innerHTML = `
-    ${topbarHTML("Livres Lus", true)}
+    ${brandCenter("Livres Lus")}
+
+    <div class="row" style="justify-content:center; margin-bottom:6px">
+      <button class="btn" id="btnBack">← Retour</button>
+      <button class="btn" onclick="show('pal')">📚 PAL</button>
+      <button class="btn danger" id="clear">Vider</button>
+    </div>
 
     <div class="panel">
       <h2>
@@ -686,9 +658,7 @@ function renderRead(){
             <option value="author">Tri : auteur</option>
             <option value="title">Tri : titre</option>
           </select>
-          <button class="btn danger" id="clear">Vider</button>
         </div>
-        <div class="hint">Tu peux supprimer un livre individuellement, ou vider toute la liste.</div>
       </div>
       <div class="divider"></div>
       <div id="cards" class="list"></div>
@@ -724,7 +694,7 @@ function renderRead(){
     }
 
     cards.innerHTML = filtered.map(b => renderCardRead(b)).join("");
-    bindCards(cards, { showObtain:false, showRead:false, showDelete:true });
+    bindCards(cards);
   }
 
   q.addEventListener("input", apply);
@@ -734,7 +704,7 @@ function renderRead(){
     if(!confirm("Vider Livres Lus ?")) return;
     state.books = state.books.filter(b => !b.read);
     saveState();
-    renderRead();
+    show("read");
   };
 
   apply();
@@ -766,7 +736,13 @@ function renderAdd(){
   const root = document.getElementById("view-add");
 
   root.innerHTML = `
-    ${topbarHTML("Ajouter", true)}
+    ${brandCenter("Ajouter")}
+
+    <div class="row" style="justify-content:center; margin-bottom:10px">
+      <button class="btn" id="btnBack">← Retour</button>
+      <button class="btn" onclick="show('ebooks')">📘 Ebooks</button>
+      <button class="btn" onclick="show('wishlist')">🎀 Wishlist</button>
+    </div>
 
     <div class="panel">
       <h2><span>Recherche automatique (couverture + résumé)</span></h2>
@@ -781,7 +757,6 @@ function renderAdd(){
         </div>
         <div class="hint">Les livres ajoutés arrivent dans Ebooks ou Wishlist (avant obtention).</div>
       </div>
-      <div class="divider"></div>
       <div class="content">
         <div id="searchStatus" class="hint"></div>
         <div id="searchResults" class="list"></div>
@@ -810,7 +785,7 @@ function renderAdd(){
         <textarea class="input" id="mSummary" placeholder="Résumé (optionnel)"></textarea>
         <div class="row" style="margin-top:10px">
           <button class="btn" id="addManual">Ajouter</button>
-          <button class="btn ghost" id="resetManual">Réinitialiser</button>
+          <button class="btn" id="resetManual">Réinitialiser</button>
         </div>
       </div>
     </div>
@@ -873,7 +848,7 @@ function renderAdd(){
           <p class="t">${escapeHtml(b.title || "Sans titre")}</p>
           <p class="a">${escapeHtml(toAuthorsDisplay(b.authors))}</p>
           <div class="actions">
-            <span class="chip pink" data-action="add" data-id="${escapeHtml(b._previewId)}">➕ Ajouter</span>
+            <span class="chip" data-action="add" data-id="${escapeHtml(b._previewId)}">➕ Ajouter</span>
           </div>
         </div>
       </div>
@@ -889,12 +864,11 @@ function renderAdd(){
         if(!meta) return;
         addBook(meta, formatPick.value);
         saveState();
-        status.textContent = "Ajouté ✅ (retourne sur Accueil pour voir les compteurs)";
+        status.textContent = "Ajouté ✅";
       });
     });
   }
 
-  // Manual
   root.querySelector("#addManual").addEventListener("click", ()=>{
     const title = root.querySelector("#mTitle").value.trim();
     const author = root.querySelector("#mAuthor").value.trim();
@@ -921,44 +895,15 @@ function renderAdd(){
   });
 }
 
-/* ===== add book ===== */
-function addBook(meta, format){
-  const book = {
-    id: uid(),
-    title: meta.title || "Sans titre",
-    authors: meta.authors || [],
-    series: meta.series || "",
-    volumeNumber: meta.volumeNumber || "",
-    format: format || "ebook",     // ebook | wishlist
-    summary: meta.summary || "",
-    coverUrl: meta.coverUrl || "",
-    isbn: meta.isbn || "",
-    acquired: false,
-    read: false,
-    createdAt: Date.now(),
-    readAt: null
-  };
-
-  // Dédup
-  const key = (book.title + "|" + (book.authors?.[0]||"") + "|" + book.format + "|" + (book.series||"") + "|" + (book.volumeNumber||"")).toLowerCase();
-  const exists = state.books.some(b=>{
-    const k = (b.title + "|" + (b.authors?.[0]||"") + "|" + b.format + "|" + (b.series||"") + "|" + (b.volumeNumber||"")).toLowerCase();
-    return k === key;
-  });
-  if(exists) return;
-
-  state.books.unshift(book);
-}
-
-/* ===== actions binding for cards ===== */
-function bindCards(container, opts){
+/* ===== actions ===== */
+function bindCards(container){
   container.querySelectorAll('[data-action="obtain"]').forEach(el=>{
     el.addEventListener("click", (e)=>{
       e.stopPropagation();
       const id = el.dataset.id;
       const book = state.books.find(b => b.id === id);
       if(!book) return;
-      book.acquired = true;     // -> PAL
+      book.acquired = true; // -> PAL
       saveState();
       show("pal");
     });
@@ -991,6 +936,34 @@ function bindCards(container, opts){
   container.querySelectorAll("[data-open]").forEach(card=>{
     card.addEventListener("click", ()=> openModal(card.dataset.open));
   });
+}
+
+/* ===== book add ===== */
+function addBook(meta, format){
+  const book = {
+    id: uid(),
+    title: meta.title || "Sans titre",
+    authors: meta.authors || [],
+    series: meta.series || "",
+    volumeNumber: meta.volumeNumber || "",
+    format: format || "ebook",   // ebook | wishlist
+    summary: meta.summary || "",
+    coverUrl: meta.coverUrl || "",
+    isbn: meta.isbn || "",
+    acquired: false,
+    read: false,
+    createdAt: Date.now(),
+    readAt: null
+  };
+
+  const key = (book.title + "|" + (book.authors?.[0]||"") + "|" + book.format + "|" + (book.series||"") + "|" + (book.volumeNumber||"")).toLowerCase();
+  const exists = state.books.some(b=>{
+    const k = (b.title + "|" + (b.authors?.[0]||"") + "|" + b.format + "|" + (b.series||"") + "|" + (b.volumeNumber||"")).toLowerCase();
+    return k === key;
+  });
+  if(exists) return;
+
+  state.books.unshift(book);
 }
 
 /* ===== Modal ===== */
