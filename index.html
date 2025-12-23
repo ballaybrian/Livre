@@ -73,6 +73,7 @@
       display:inline-flex;
       align-items:center;
       gap:8px;
+      text-decoration:none;
     }
     .btn:active{transform: translateY(1px)}
     .btn.small{padding:9px 11px; font-size:13px}
@@ -168,18 +169,9 @@
     }
 
     /* SVG icons */
-    .ico{
-      width:42px;
-      height:42px;
-      display:block;
-    }
-    .ico.small{
-      width:18px;
-      height:18px;
-    }
-    .ico path, .ico circle, .ico rect, .ico line, .ico polyline{
-      stroke: var(--pink);
-    }
+    .ico{width:42px;height:42px;display:block}
+    .ico.small{width:18px;height:18px}
+    .ico path, .ico circle, .ico rect, .ico line, .ico polyline{stroke: var(--pink)}
 
     /* Lists */
     .list{
@@ -236,6 +228,7 @@
       user-select:none;
       cursor:pointer;
       box-shadow: 0 10px 20px rgba(0,0,0,.18);
+      text-decoration:none;
     }
     .chip.danger{
       background: rgba(239,68,68,.92);
@@ -289,7 +282,7 @@
       border-top:1px solid var(--border);
       padding:12px 16px;
       display:flex;
-      justify-content:flex-end;
+      justify-content:space-between;
       gap:10px;
       flex-wrap:wrap;
       align-items:center;
@@ -333,15 +326,16 @@
       </div>
 
       <div class="mfoot">
-        <button class="btn danger" id="modalDelete">Supprimer</button>
+        <a class="btn small" id="modalAmazon" target="_blank" rel="noopener">Amazon</a>
+        <button class="btn danger small" id="modalDelete">Supprimer</button>
       </div>
     </div>
   </div>
 
 <script>
-/* Books By Siana - v6 (SVG icons in buttons) */
+/* Books By Siana - v7 (better search + Amazon link) */
 
-const STORAGE_KEY = "bbs.books.v6";
+const STORAGE_KEY = "bbs.books.v7";
 const state = loadState();
 let currentRoute = "home";
 let currentModalBookId = null;
@@ -372,7 +366,22 @@ function toAuthorsDisplay(authors){
 function formatFormatLabel(book){ return book.format === "ebook" ? "Ebook" : "Wishlist"; }
 function formatIconFallback(book){ return book.format === "ebook" ? "📱" : "❤"; }
 
-/* ===== SVG ICONS (stroke = pink via CSS) ===== */
+/* ===== Amazon link builder ===== */
+function amazonSearchUrl(bookOrTitle, authors){
+  let title = "";
+  let author = "";
+  if(typeof bookOrTitle === "string"){
+    title = bookOrTitle;
+    author = (authors && authors.length) ? authors[0] : "";
+  }else{
+    title = bookOrTitle?.title || "";
+    author = (bookOrTitle?.authors && bookOrTitle.authors.length) ? bookOrTitle.authors[0] : "";
+  }
+  const q = `${title} ${author}`.trim();
+  return "https://www.amazon.fr/s?k=" + encodeURIComponent(q);
+}
+
+/* ===== SVG ICONS ===== */
 function svgReader(cls=""){
   return `
     <svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -504,10 +513,7 @@ function renderList(kind){
 
   const books = state.books.filter(b => b.format === format && !b.read && !b.acquired);
 
-  const iconE = svgReader("small");
-  const iconW = svgHeart("small");
   const iconP = svgOpenBook("small");
-  const iconR = svgClosedBook("small");
 
   root.innerHTML = `
     ${brandCenter(subtitle)}
@@ -589,6 +595,7 @@ function renderCardObtainable(b, obtainLabel){
         <p class="a">${escapeHtml(author)}</p>
         <div class="actions">
           <span class="chip" data-action="obtain" data-id="${escapeHtml(b.id)}">✓ ${escapeHtml(obtainLabel)}</span>
+          <a class="chip" href="${amazonSearchUrl(b)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Amazon</a>
           <span class="chip danger" data-action="delete" data-id="${escapeHtml(b.id)}">🗑 Supprimer</span>
         </div>
       </div>
@@ -629,9 +636,7 @@ function renderPAL(){
             <option value="title">Tri : titre</option>
           </select>
         </div>
-        <div class="hint">Ici tu marques les livres comme <b>Lu</b> → ils partent dans <b>Livres Lus</b>.</div>
       </div>
-      <div class="divider"></div>
       <div id="cards" class="list"></div>
     </div>
   `;
@@ -660,7 +665,7 @@ function renderPAL(){
     filtered.sort(sorter[sortSel.value] || sorter.created);
 
     if(!filtered.length){
-      cards.innerHTML = `<div class="empty">PAL vide. Mets un livre en “Téléchargé/Acheté” depuis Ebooks/Wishlist.</div>`;
+      cards.innerHTML = `<div class="empty">PAL vide.</div>`;
       return;
     }
 
@@ -686,6 +691,7 @@ function renderCardPAL(b){
         <p class="a">${escapeHtml(author)}</p>
         <div class="actions">
           <span class="chip" data-action="read" data-id="${escapeHtml(b.id)}">✓ Lu</span>
+          <a class="chip" href="${amazonSearchUrl(b)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Amazon</a>
           <span class="chip danger" data-action="delete" data-id="${escapeHtml(b.id)}">🗑 Supprimer</span>
         </div>
       </div>
@@ -724,7 +730,6 @@ function renderRead(){
           </select>
         </div>
       </div>
-      <div class="divider"></div>
       <div id="cards" class="list"></div>
     </div>
   `;
@@ -788,6 +793,7 @@ function renderCardRead(b){
         <p class="a">${escapeHtml(author)}</p>
         <div class="actions">
           <span class="chip">${escapeHtml(fmt)}</span>
+          <a class="chip" href="${amazonSearchUrl(b)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Amazon</a>
           <span class="chip danger" data-action="delete" data-id="${escapeHtml(b.id)}">🗑 Supprimer</span>
         </div>
       </div>
@@ -814,17 +820,17 @@ function renderAdd(){
     </div>
 
     <div class="panel">
-      <h2><span>Recherche automatique (couverture + résumé)</span></h2>
+      <h2><span>Recherche automatique (Google Books + Open Library)</span></h2>
       <div class="content">
         <div class="row">
-          <input class="input" id="searchQuery" placeholder="Titre, auteur ou ISBN (ex: 'Dune Herbert')" />
+          <input class="input" id="searchQuery" placeholder="Titre, auteur ou ISBN (ex: 978…)" />
           <button class="btn" id="searchBtn">Rechercher</button>
           <select id="formatPick">
             <option value="ebook">Ebook</option>
             <option value="wishlist">Wishlist</option>
           </select>
         </div>
-        <div class="hint">Les livres ajoutés arrivent dans Ebooks ou Wishlist (avant obtention).</div>
+        <div class="hint">Astuce : si tu tapes un ISBN, la recherche est encore plus précise.</div>
       </div>
       <div class="content">
         <div id="searchStatus" class="hint"></div>
@@ -874,39 +880,42 @@ function renderAdd(){
   window.__SEARCH_CACHE = window.__SEARCH_CACHE || new Map();
 
   async function doSearch(){
-    const query = (q.value||"").trim();
-    if(!query){
+    const raw = (q.value||"").trim();
+    if(!raw){
       status.textContent = "Tape un titre/auteur/ISBN puis lance la recherche.";
       results.innerHTML = "";
       return;
     }
+
+    const query = normalizeQueryForBooks(raw);
     status.textContent = "Recherche en cours…";
     results.innerHTML = "";
 
     try{
       const google = await searchGoogleBooks(query);
       if(google.length){
-        status.textContent = `Résultats (Google Books): ${google.length}`;
+        status.textContent = `Résultats (Google Books) : ${google.length}`;
         results.innerHTML = google.map(b => renderSearchCard(b)).join("");
-        bindSearchButtons(results);
+        bindSearchButtons(results, formatPick);
         return;
       }
     }catch{}
 
     try{
-      const ol = await searchOpenLibrary(query);
+      const ol = await searchOpenLibrary(raw);
       if(ol.length){
-        status.textContent = `Résultats (Open Library): ${ol.length}`;
+        status.textContent = `Résultats (Open Library) : ${ol.length}`;
         results.innerHTML = ol.map(b => renderSearchCard(b)).join("");
-        bindSearchButtons(results);
+        bindSearchButtons(results, formatPick);
         return;
       }
     }catch{}
 
-    status.textContent = "Aucun résultat. Essaie un autre mot-clé ou utilise l’ajout manuel.";
+    status.textContent = "Aucun résultat. Essaie un autre mot-clé (ou ISBN), ou utilise l’ajout manuel.";
   }
 
   function renderSearchCard(b){
+    const amazon = amazonSearchUrl(b.title || "", b.authors || []);
     return `
       <div class="card">
         <div class="cover">
@@ -917,26 +926,28 @@ function renderAdd(){
           <p class="a">${escapeHtml(toAuthorsDisplay(b.authors))}</p>
           <div class="actions">
             <span class="chip" data-action="add" data-id="${escapeHtml(b._previewId)}">➕ Ajouter</span>
+            <a class="chip" href="${amazon}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Amazon</a>
           </div>
         </div>
       </div>
     `;
   }
 
-  function bindSearchButtons(container){
+  function bindSearchButtons(container, formatPickEl){
     container.querySelectorAll('[data-action="add"]').forEach(el=>{
       el.addEventListener("click", (e)=>{
         e.stopPropagation();
         const pid = el.dataset.id;
         const meta = window.__SEARCH_CACHE.get(pid);
         if(!meta) return;
-        addBook(meta, formatPick.value);
+        addBook(meta, formatPickEl.value);
         saveState();
         status.textContent = "Ajouté ✅";
       });
     });
   }
 
+  // Manual
   root.querySelector("#addManual").addEventListener("click", ()=>{
     const title = root.querySelector("#mTitle").value.trim();
     const author = root.querySelector("#mAuthor").value.trim();
@@ -1062,6 +1073,9 @@ function openModal(id){
     ${book.read ? `<span class="chip">Lu</span>` : ``}
   `;
 
+  const a = document.getElementById("modalAmazon");
+  a.href = amazonSearchUrl(book);
+
   document.getElementById("modalDelete").onclick = ()=>{
     if(!confirm("Supprimer ce livre ?")) return;
     state.books = state.books.filter(b => b.id !== id);
@@ -1079,11 +1093,34 @@ document.getElementById("modalBackdrop").addEventListener("click", (e)=>{
   if(e.target.id === "modalBackdrop") closeModal();
 });
 
+/* ===== Search helpers ===== */
+function normalizeQueryForBooks(raw){
+  const cleaned = String(raw).trim();
+  const isbn = extractISBN(cleaned);
+  if(isbn) return "isbn:" + isbn;
+  return cleaned;
+}
+function extractISBN(text){
+  const t = String(text).toUpperCase();
+  // keep digits + X
+  const compact = t.replace(/[^0-9X]/g, "");
+  // accept 10 or 13 length
+  if(compact.length === 10 || compact.length === 13){
+    // very light validation: first char not X for ISBN-13
+    if(compact.length === 13 && compact.includes("X")) return null;
+    return compact;
+  }
+  return null;
+}
+
 /* ===== APIs ===== */
 async function searchGoogleBooks(query){
   const url = new URL("https://www.googleapis.com/books/v1/volumes");
   url.searchParams.set("q", query);
-  url.searchParams.set("maxResults", "12");
+  url.searchParams.set("maxResults", "20");
+  url.searchParams.set("printType", "books");
+  url.searchParams.set("orderBy", "relevance");
+  url.searchParams.set("langRestrict", "fr");
 
   const res = await fetch(url.toString());
   if(!res.ok) throw new Error("Google Books HTTP " + res.status);
@@ -1099,7 +1136,7 @@ async function searchGoogleBooks(query){
       authors: v.authors || [],
       summary: stripHtml(v.description || ""),
       isbn: pickIsbn(v.industryIdentifiers || []),
-      coverUrl: pickGoogleCover(v.imageLinks),
+      coverUrl: normalizeCover(pickGoogleCover(v.imageLinks)),
       series: "",
       volumeNumber: ""
     };
@@ -1110,7 +1147,16 @@ async function searchGoogleBooks(query){
 }
 function pickGoogleCover(imageLinks){
   if(!imageLinks) return "";
-  return imageLinks.thumbnail || imageLinks.smallThumbnail || imageLinks.small || imageLinks.medium || "";
+  return imageLinks.thumbnail || imageLinks.smallThumbnail || imageLinks.small || imageLinks.medium || imageLinks.large || "";
+}
+function normalizeCover(url){
+  // force https and slightly better quality when possible
+  if(!url) return "";
+  let u = String(url);
+  u = u.replace("http://", "https://");
+  // try to remove "zoom=1" if present and increase zoom a bit
+  u = u.replace(/zoom=\d/g, "zoom=2");
+  return u;
 }
 function pickIsbn(ids){
   const byType = {};
@@ -1124,7 +1170,7 @@ function stripHtml(html){ return String(html||"").replace(/<[^>]*>/g, "").trim()
 async function searchOpenLibrary(query){
   const url = new URL("https://openlibrary.org/search.json");
   url.searchParams.set("q", query);
-  url.searchParams.set("limit", "12");
+  url.searchParams.set("limit", "20");
 
   const res = await fetch(url.toString());
   if(!res.ok) throw new Error("OpenLibrary HTTP " + res.status);
