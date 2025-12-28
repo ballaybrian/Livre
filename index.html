@@ -31,7 +31,6 @@
     .view{display:none}
     .view.active{display:block}
 
-    /* Centered brand */
     .brand-center{
       display:flex;
       flex-direction:column;
@@ -60,7 +59,6 @@
       margin-top:-4px;
     }
 
-    /* Buttons = Pink */
     .btn{
       border:none;
       border-radius: 14px;
@@ -119,7 +117,6 @@
     textarea{min-height:100px; resize: vertical}
     .hint{color: var(--muted); font-size:12px; margin-top:8px; line-height:1.35}
 
-    /* Home */
     .home{
       margin-top:8px;
       min-height: calc(100vh - 200px);
@@ -168,12 +165,10 @@
       text-align:center;
     }
 
-    /* SVG icons */
     .ico{width:42px;height:42px;display:block}
     .ico.small{width:18px;height:18px}
     .ico path, .ico circle, .ico rect, .ico line, .ico polyline{stroke: var(--pink)}
 
-    /* Lists */
     .list{
       display:grid;
       grid-template-columns: repeat( auto-fill, minmax(260px, 1fr) );
@@ -237,7 +232,6 @@
     }
     .empty{padding: 22px 16px; color: var(--muted); text-align:center; font-size:13px}
 
-    /* Modal */
     .modal-backdrop{
       position:fixed; inset:0;
       background: rgba(0,0,0,.65);
@@ -306,7 +300,6 @@
     <div id="view-add" class="view"></div>
   </div>
 
-  <!-- Modal détails -->
   <div id="modalBackdrop" class="modal-backdrop" role="dialog" aria-modal="true">
     <div class="modal">
       <div class="mhead">
@@ -333,12 +326,11 @@
   </div>
 
 <script>
-/* Books By Siana - v7 (better search + Amazon link) */
+/* Books By Siana - v8 (edition pocket/broché + better search cascade + Amazon link) */
 
-const STORAGE_KEY = "bbs.books.v7";
+const STORAGE_KEY = "bbs.books.v8";
 const state = loadState();
 let currentRoute = "home";
-let currentModalBookId = null;
 
 function uid(){ return Math.random().toString(16).slice(2) + Date.now().toString(16); }
 function loadState(){
@@ -366,18 +358,33 @@ function toAuthorsDisplay(authors){
 function formatFormatLabel(book){ return book.format === "ebook" ? "Ebook" : "Wishlist"; }
 function formatIconFallback(book){ return book.format === "ebook" ? "📱" : "❤"; }
 
+/* ===== Edition helpers ===== */
+function editionLabel(edition){
+  if(edition === "poche") return "Poche";
+  if(edition === "broche") return "Broché";
+  return "";
+}
+function applyEditionToQuery(query, edition){
+  if (String(query).startsWith("isbn:")) return query;
+  if (edition === "poche") return `${query} poche`;
+  if (edition === "broche") return `${query} broché`;
+  return query;
+}
+
 /* ===== Amazon link builder ===== */
 function amazonSearchUrl(bookOrTitle, authors){
   let title = "";
   let author = "";
+  let edition = "";
   if(typeof bookOrTitle === "string"){
     title = bookOrTitle;
     author = (authors && authors.length) ? authors[0] : "";
   }else{
     title = bookOrTitle?.title || "";
     author = (bookOrTitle?.authors && bookOrTitle.authors.length) ? bookOrTitle.authors[0] : "";
+    edition = editionLabel(bookOrTitle?.edition || "");
   }
-  const q = `${title} ${author}`.trim();
+  const q = `${title} ${author} ${edition}`.trim();
   return "https://www.amazon.fr/s?k=" + encodeURIComponent(q);
 }
 
@@ -433,7 +440,6 @@ function show(route){
 }
 function backToHome(){ show("home"); }
 
-/* ===== centered brand block ===== */
 function brandCenter(subtitle){
   return `
     <div class="brand-center">
@@ -450,7 +456,7 @@ function getStats(){
   const wishlist = state.books.filter(b => b.format === "wishlist" && !b.read && !b.acquired).length;
   const pal = state.books.filter(b => !b.read && b.acquired).length;
   const read = state.books.filter(b => b.read).length;
-  return { ebooks, wishlist, pal, read, total: state.books.length };
+  return { ebooks, wishlist, pal, read };
 }
 
 /* ===== HOME ===== */
@@ -460,7 +466,6 @@ function renderHome(){
 
   root.innerHTML = `
     ${brandCenter("Accueil")}
-
     <div class="home">
       <div class="home-grid">
         <div class="home-btn" id="goEbooks">
@@ -513,15 +518,12 @@ function renderList(kind){
 
   const books = state.books.filter(b => b.format === format && !b.read && !b.acquired);
 
-  const iconP = svgOpenBook("small");
-
   root.innerHTML = `
     ${brandCenter(subtitle)}
-
     <div class="row" style="justify-content:center; margin-bottom:6px">
       <button class="btn" id="btnBack">← Retour</button>
       <button class="btn" onclick="show('add')">＋ Ajouter</button>
-      <button class="btn" onclick="show('pal')">${iconP} PAL</button>
+      <button class="btn" onclick="show('pal')">${svgOpenBook("small")} PAL</button>
     </div>
 
     <div class="panel">
@@ -540,7 +542,6 @@ function renderList(kind){
         </div>
         <div class="hint">Quand tu coches <b>${obtainLabel}</b>, le livre passe automatiquement dans <b>PAL</b>.</div>
       </div>
-      <div class="divider"></div>
       <div id="cards" class="list"></div>
     </div>
   `;
@@ -562,7 +563,7 @@ function renderList(kind){
     let filtered = books.slice();
     if(query){
       filtered = filtered.filter(b => {
-        const hay = [b.title, (b.authors||[]).join(" "), b.series, b.volumeNumber].join(" ").toLowerCase();
+        const hay = [b.title, (b.authors||[]).join(" "), b.series, b.volumeNumber, editionLabel(b.edition)].join(" ").toLowerCase();
         return hay.includes(query);
       });
     }
@@ -585,6 +586,7 @@ function renderList(kind){
 function renderCardObtainable(b, obtainLabel){
   const icon = (b.format === "ebook") ? "📱" : "❤";
   const author = toAuthorsDisplay(b.authors);
+  const ed = editionLabel(b.edition);
   return `
     <div class="card" data-open="${escapeHtml(b.id)}">
       <div class="cover">
@@ -592,7 +594,7 @@ function renderCardObtainable(b, obtainLabel){
       </div>
       <div class="meta">
         <p class="t">${escapeHtml(b.title || "Sans titre")}</p>
-        <p class="a">${escapeHtml(author)}</p>
+        <p class="a">${escapeHtml(author)}${ed ? " • " + escapeHtml(ed) : ""}</p>
         <div class="actions">
           <span class="chip" data-action="obtain" data-id="${escapeHtml(b.id)}">✓ ${escapeHtml(obtainLabel)}</span>
           <a class="chip" href="${amazonSearchUrl(b)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Amazon</a>
@@ -608,18 +610,13 @@ function renderPAL(){
   const root = document.getElementById("view-pal");
   const books = state.books.filter(b => b.acquired && !b.read);
 
-  const iconE = svgReader("small");
-  const iconW = svgHeart("small");
-  const iconR = svgClosedBook("small");
-
   root.innerHTML = `
     ${brandCenter("PAL (à lire)")}
-
     <div class="row" style="justify-content:center; margin-bottom:6px">
       <button class="btn" id="btnBack">← Retour</button>
-      <button class="btn" onclick="show('ebooks')">${iconE} Ebooks</button>
-      <button class="btn" onclick="show('wishlist')">${iconW} Wishlist</button>
-      <button class="btn" onclick="show('read')">${iconR} Livres Lus</button>
+      <button class="btn" onclick="show('ebooks')">${svgReader("small")} Ebooks</button>
+      <button class="btn" onclick="show('wishlist')">${svgHeart("small")} Wishlist</button>
+      <button class="btn" onclick="show('read')">${svgClosedBook("small")} Livres Lus</button>
     </div>
 
     <div class="panel">
@@ -658,7 +655,7 @@ function renderPAL(){
     let filtered = books.slice();
     if(query){
       filtered = filtered.filter(b => {
-        const hay = [b.title, (b.authors||[]).join(" "), b.series, b.volumeNumber].join(" ").toLowerCase();
+        const hay = [b.title, (b.authors||[]).join(" "), b.series, b.volumeNumber, editionLabel(b.edition)].join(" ").toLowerCase();
         return hay.includes(query);
       });
     }
@@ -681,6 +678,7 @@ function renderPAL(){
 function renderCardPAL(b){
   const icon = (b.format === "ebook") ? "📱" : "❤";
   const author = toAuthorsDisplay(b.authors);
+  const ed = editionLabel(b.edition);
   return `
     <div class="card" data-open="${escapeHtml(b.id)}">
       <div class="cover">
@@ -688,7 +686,7 @@ function renderCardPAL(b){
       </div>
       <div class="meta">
         <p class="t">${escapeHtml(b.title || "Sans titre")}</p>
-        <p class="a">${escapeHtml(author)}</p>
+        <p class="a">${escapeHtml(author)}${ed ? " • " + escapeHtml(ed) : ""}</p>
         <div class="actions">
           <span class="chip" data-action="read" data-id="${escapeHtml(b.id)}">✓ Lu</span>
           <a class="chip" href="${amazonSearchUrl(b)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Amazon</a>
@@ -704,14 +702,11 @@ function renderRead(){
   const root = document.getElementById("view-read");
   const books = state.books.filter(b => b.read);
 
-  const iconP = svgOpenBook("small");
-
   root.innerHTML = `
     ${brandCenter("Livres Lus")}
-
     <div class="row" style="justify-content:center; margin-bottom:6px">
       <button class="btn" id="btnBack">← Retour</button>
-      <button class="btn" onclick="show('pal')">${iconP} PAL</button>
+      <button class="btn" onclick="show('pal')">${svgOpenBook("small")} PAL</button>
       <button class="btn danger" id="clear">Vider</button>
     </div>
 
@@ -751,7 +746,7 @@ function renderRead(){
     let filtered = books.slice();
     if(query){
       filtered = filtered.filter(b => {
-        const hay = [b.title, (b.authors||[]).join(" "), b.series, b.volumeNumber].join(" ").toLowerCase();
+        const hay = [b.title, (b.authors||[]).join(" "), b.series, b.volumeNumber, editionLabel(b.edition)].join(" ").toLowerCase();
         return hay.includes(query);
       });
     }
@@ -783,6 +778,7 @@ function renderCardRead(b){
   const icon = (b.format === "ebook") ? "📱" : "❤";
   const author = toAuthorsDisplay(b.authors);
   const fmt = formatFormatLabel(b);
+  const ed = editionLabel(b.edition);
   return `
     <div class="card" data-open="${escapeHtml(b.id)}">
       <div class="cover">
@@ -790,7 +786,7 @@ function renderCardRead(b){
       </div>
       <div class="meta">
         <p class="t">${escapeHtml(b.title || "Sans titre")}</p>
-        <p class="a">${escapeHtml(author)}</p>
+        <p class="a">${escapeHtml(author)}${ed ? " • " + escapeHtml(ed) : ""}</p>
         <div class="actions">
           <span class="chip">${escapeHtml(fmt)}</span>
           <a class="chip" href="${amazonSearchUrl(b)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Amazon</a>
@@ -805,18 +801,13 @@ function renderCardRead(b){
 function renderAdd(){
   const root = document.getElementById("view-add");
 
-  const iconE = svgReader("small");
-  const iconW = svgHeart("small");
-  const iconP = svgOpenBook("small");
-
   root.innerHTML = `
     ${brandCenter("Ajouter")}
-
     <div class="row" style="justify-content:center; margin-bottom:10px">
       <button class="btn" id="btnBack">← Retour</button>
-      <button class="btn" onclick="show('ebooks')">${iconE} Ebooks</button>
-      <button class="btn" onclick="show('wishlist')">${iconW} Wishlist</button>
-      <button class="btn" onclick="show('pal')">${iconP} PAL</button>
+      <button class="btn" onclick="show('ebooks')">${svgReader("small")} Ebooks</button>
+      <button class="btn" onclick="show('wishlist')">${svgHeart("small")} Wishlist</button>
+      <button class="btn" onclick="show('pal')">${svgOpenBook("small")} PAL</button>
     </div>
 
     <div class="panel">
@@ -829,8 +820,13 @@ function renderAdd(){
             <option value="ebook">Ebook</option>
             <option value="wishlist">Wishlist</option>
           </select>
+          <select id="editionPick">
+            <option value="auto">Édition : Auto</option>
+            <option value="poche">Édition : Poche</option>
+            <option value="broche">Édition : Broché</option>
+          </select>
         </div>
-        <div class="hint">Astuce : si tu tapes un ISBN, la recherche est encore plus précise.</div>
+        <div class="hint">Astuce : si tu tapes un ISBN, la recherche est très précise (couverture édition).</div>
       </div>
       <div class="content">
         <div id="searchStatus" class="hint"></div>
@@ -851,6 +847,11 @@ function renderAdd(){
           <select id="mFormat">
             <option value="ebook">Ebook</option>
             <option value="wishlist">Wishlist</option>
+          </select>
+          <select id="mEdition">
+            <option value="auto">Édition : Auto</option>
+            <option value="poche">Édition : Poche</option>
+            <option value="broche">Édition : Broché</option>
           </select>
         </div>
         <div class="row">
@@ -873,6 +874,7 @@ function renderAdd(){
   const status = root.querySelector("#searchStatus");
   const results = root.querySelector("#searchResults");
   const formatPick = root.querySelector("#formatPick");
+  const editionPick = root.querySelector("#editionPick");
 
   btn.addEventListener("click", ()=> doSearch());
   q.addEventListener("keydown", (e)=>{ if(e.key==="Enter") doSearch(); });
@@ -887,35 +889,52 @@ function renderAdd(){
       return;
     }
 
-    const query = normalizeQueryForBooks(raw);
+    const baseQuery = normalizeQueryForBooks(raw);
+    const edition = editionPick.value;
+    const query = applyEditionToQuery(baseQuery, edition);
+
     status.textContent = "Recherche en cours…";
     results.innerHTML = "";
 
+    // 1) Google Books FR
     try{
-      const google = await searchGoogleBooks(query);
-      if(google.length){
-        status.textContent = `Résultats (Google Books) : ${google.length}`;
-        results.innerHTML = google.map(b => renderSearchCard(b)).join("");
-        bindSearchButtons(results, formatPick);
+      const googleFR = await searchGoogleBooks(query, { lang: "fr" });
+      if(googleFR.length){
+        status.textContent = `Résultats (Google Books FR) : ${googleFR.length}`;
+        results.innerHTML = googleFR.map(b => renderSearchCard(b, edition)).join("");
+        bindSearchButtons(results, formatPick, editionPick);
         return;
       }
     }catch{}
 
+    // 2) Google Books global
+    try{
+      const googleAll = await searchGoogleBooks(query, { lang: "" });
+      if(googleAll.length){
+        status.textContent = `Résultats (Google Books) : ${googleAll.length}`;
+        results.innerHTML = googleAll.map(b => renderSearchCard(b, edition)).join("");
+        bindSearchButtons(results, formatPick, editionPick);
+        return;
+      }
+    }catch{}
+
+    // 3) Open Library fallback
     try{
       const ol = await searchOpenLibrary(raw);
       if(ol.length){
         status.textContent = `Résultats (Open Library) : ${ol.length}`;
-        results.innerHTML = ol.map(b => renderSearchCard(b)).join("");
-        bindSearchButtons(results, formatPick);
+        results.innerHTML = ol.map(b => renderSearchCard(b, edition)).join("");
+        bindSearchButtons(results, formatPick, editionPick);
         return;
       }
     }catch{}
 
-    status.textContent = "Aucun résultat. Essaie un autre mot-clé (ou ISBN), ou utilise l’ajout manuel.";
+    status.textContent = "Aucun résultat. Essaie titre + auteur, ou un ISBN.";
   }
 
-  function renderSearchCard(b){
-    const amazon = amazonSearchUrl(b.title || "", b.authors || []);
+  function renderSearchCard(b, edition){
+    // on tag l'édition choisie même si la data source ne la fournit pas
+    const amazon = amazonSearchUrl({ title: b.title, authors: b.authors, edition });
     return `
       <div class="card">
         <div class="cover">
@@ -923,7 +942,7 @@ function renderAdd(){
         </div>
         <div class="meta">
           <p class="t">${escapeHtml(b.title || "Sans titre")}</p>
-          <p class="a">${escapeHtml(toAuthorsDisplay(b.authors))}</p>
+          <p class="a">${escapeHtml(toAuthorsDisplay(b.authors))}${edition && edition !== "auto" ? " • " + escapeHtml(editionLabel(edition)) : ""}</p>
           <div class="actions">
             <span class="chip" data-action="add" data-id="${escapeHtml(b._previewId)}">➕ Ajouter</span>
             <a class="chip" href="${amazon}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Amazon</a>
@@ -933,21 +952,20 @@ function renderAdd(){
     `;
   }
 
-  function bindSearchButtons(container, formatPickEl){
+  function bindSearchButtons(container, formatPickEl, editionPickEl){
     container.querySelectorAll('[data-action="add"]').forEach(el=>{
       el.addEventListener("click", (e)=>{
         e.stopPropagation();
         const pid = el.dataset.id;
         const meta = window.__SEARCH_CACHE.get(pid);
         if(!meta) return;
-        addBook(meta, formatPickEl.value);
+        addBook(meta, formatPickEl.value, editionPickEl.value);
         saveState();
         status.textContent = "Ajouté ✅";
       });
     });
   }
 
-  // Manual
   root.querySelector("#addManual").addEventListener("click", ()=>{
     const title = root.querySelector("#mTitle").value.trim();
     const author = root.querySelector("#mAuthor").value.trim();
@@ -957,10 +975,11 @@ function renderAdd(){
     const isbn = root.querySelector("#mIsbn").value.trim();
     const summary = root.querySelector("#mSummary").value.trim();
     const format = root.querySelector("#mFormat").value;
+    const edition = root.querySelector("#mEdition").value;
 
     if(!title){ alert("Titre obligatoire."); return; }
 
-    addBook({ title, authors: author ? [author] : [], series, volumeNumber, coverUrl, isbn, summary }, format);
+    addBook({ title, authors: author ? [author] : [], series, volumeNumber, coverUrl, isbn, summary }, format, edition);
     saveState();
     root.querySelector("#resetManual").click();
     alert("Ajouté ✅");
@@ -971,6 +990,7 @@ function renderAdd(){
       root.querySelector("#"+id).value = "";
     });
     root.querySelector("#mFormat").value = "ebook";
+    root.querySelector("#mEdition").value = "auto";
   });
 }
 
@@ -1018,7 +1038,7 @@ function bindCards(container){
 }
 
 /* ===== book add ===== */
-function addBook(meta, format){
+function addBook(meta, format, edition="auto"){
   const book = {
     id: uid(),
     title: meta.title || "Sans titre",
@@ -1026,6 +1046,7 @@ function addBook(meta, format){
     series: meta.series || "",
     volumeNumber: meta.volumeNumber || "",
     format: format || "ebook",
+    edition: edition || "auto",         // ✅ new
     summary: meta.summary || "",
     coverUrl: meta.coverUrl || "",
     isbn: meta.isbn || "",
@@ -1035,9 +1056,9 @@ function addBook(meta, format){
     readAt: null
   };
 
-  const key = (book.title + "|" + (book.authors?.[0]||"") + "|" + book.format + "|" + (book.series||"") + "|" + (book.volumeNumber||"")).toLowerCase();
+  const key = (book.title + "|" + (book.authors?.[0]||"") + "|" + book.format + "|" + (book.edition||"") + "|" + (book.series||"") + "|" + (book.volumeNumber||"")).toLowerCase();
   const exists = state.books.some(b=>{
-    const k = (b.title + "|" + (b.authors?.[0]||"") + "|" + b.format + "|" + (b.series||"") + "|" + (b.volumeNumber||"")).toLowerCase();
+    const k = (b.title + "|" + (b.authors?.[0]||"") + "|" + b.format + "|" + (b.edition||"") + "|" + (b.series||"") + "|" + (b.volumeNumber||"")).toLowerCase();
     return k === key;
   });
   if(exists) return;
@@ -1049,7 +1070,6 @@ function addBook(meta, format){
 function openModal(id){
   const book = state.books.find(b => b.id === id);
   if(!book) return;
-  currentModalBookId = id;
 
   const backdrop = document.getElementById("modalBackdrop");
   const cover = document.getElementById("modalCover");
@@ -1067,6 +1087,7 @@ function openModal(id){
 
   badges.innerHTML = `
     <span class="chip">${escapeHtml(formatFormatLabel(book))}</span>
+    ${book.edition && book.edition !== "auto" ? `<span class="chip">${escapeHtml(editionLabel(book.edition))}</span>` : ""}
     ${book.series ? `<span class="chip">${escapeHtml(book.series)}${book.volumeNumber ? " — Tome " + escapeHtml(book.volumeNumber) : ""}</span>` : ""}
     ${book.isbn ? `<span class="chip">ISBN: ${escapeHtml(book.isbn)}</span>` : ""}
     ${book.acquired ? `<span class="chip">PAL</span>` : `<span class="chip">À obtenir</span>`}
@@ -1102,11 +1123,8 @@ function normalizeQueryForBooks(raw){
 }
 function extractISBN(text){
   const t = String(text).toUpperCase();
-  // keep digits + X
   const compact = t.replace(/[^0-9X]/g, "");
-  // accept 10 or 13 length
   if(compact.length === 10 || compact.length === 13){
-    // very light validation: first char not X for ISBN-13
     if(compact.length === 13 && compact.includes("X")) return null;
     return compact;
   }
@@ -1114,13 +1132,13 @@ function extractISBN(text){
 }
 
 /* ===== APIs ===== */
-async function searchGoogleBooks(query){
+async function searchGoogleBooks(query, opts = { lang: "fr" }){
   const url = new URL("https://www.googleapis.com/books/v1/volumes");
   url.searchParams.set("q", query);
   url.searchParams.set("maxResults", "20");
   url.searchParams.set("printType", "books");
   url.searchParams.set("orderBy", "relevance");
-  url.searchParams.set("langRestrict", "fr");
+  if(opts?.lang) url.searchParams.set("langRestrict", opts.lang);
 
   const res = await fetch(url.toString());
   if(!res.ok) throw new Error("Google Books HTTP " + res.status);
@@ -1150,11 +1168,8 @@ function pickGoogleCover(imageLinks){
   return imageLinks.thumbnail || imageLinks.smallThumbnail || imageLinks.small || imageLinks.medium || imageLinks.large || "";
 }
 function normalizeCover(url){
-  // force https and slightly better quality when possible
   if(!url) return "";
-  let u = String(url);
-  u = u.replace("http://", "https://");
-  // try to remove "zoom=1" if present and increase zoom a bit
+  let u = String(url).replace("http://", "https://");
   u = u.replace(/zoom=\d/g, "zoom=2");
   return u;
 }
@@ -1199,7 +1214,6 @@ async function searchOpenLibrary(query){
 if("serviceWorker" in navigator){
   window.addEventListener("load", ()=>{
     navigator.serviceWorker.register("./sw.js?v=8").catch(()=>{});
-
   });
 }
 
