@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="theme-color" content="#F2B8C6" />
   <title>Books By Siana</title>
-  <link rel="manifest" href="manifest.json" />
 
   <style>
     :root{
@@ -77,10 +76,7 @@
     }
     .btn:active{transform: translateY(1px)}
     .btn.small{padding:9px 11px; font-size:13px}
-    .btn.danger{
-      background: rgba(239,68,68,.92);
-      color:#fff;
-    }
+    .btn.danger{ background: rgba(239,68,68,.92); color:#fff; }
 
     .panel{
       margin-top:12px;
@@ -295,8 +291,8 @@
 
 <body>
   <div class="wrap">
-    <div id="view-login" class="view"></div>
-    <div id="view-home" class="view active"></div>
+    <div id="view-login" class="view active"></div>
+    <div id="view-home" class="view"></div>
     <div id="view-ebooks" class="view"></div>
     <div id="view-wishlist" class="view"></div>
     <div id="view-pal" class="view"></div>
@@ -335,15 +331,21 @@
   </div>
 
 <script>
-/* Books By Siana - v11 (Manual add simplified: Title, Author, Tome + gallery cover) */
+/* =========================
+   Books By Siana - UI
+   ========================= */
+let currentRoute = "login";
+let booksCache = [];
+let authUser = null;
 
-/* ========= Accounts / Storage ========= */
-const APP_NS = "bbs";
-const LEGACY_KEYS = ["bbs.books.v6", "bbs.books.v7", "bbs.books.v8", "bbs.books.v9", "bbs.books.v10", "bbs.books.v11"];
-let currentUser = loadCurrentUser();
-let state = { books: [], __meta: {} };
-let currentRoute = "home";
+const LOCAL_FALLBACK_KEY = "bbs_local_cache_v1";
 
+function uid(){ return Math.random().toString(16).slice(2) + Date.now().toString(16); }
+function escapeHtml(str){
+  return String(str ?? "").replace(/[&<>"']/g, s => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"
+  }[s]));
+}
 function safeUsername(u){
   return String(u || "")
     .trim()
@@ -353,160 +355,29 @@ function safeUsername(u){
     .slice(0, 24);
 }
 function isValidPin(pin){ return /^[0-9]{4}$/.test(String(pin || "")); }
-function hashPin(pin){
-  const s = String(pin || "");
-  let h = 2166136261;
-  for(let i=0;i<s.length;i++){
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return (h >>> 0).toString(16);
-}
-function userKey(username){ return `${APP_NS}:user:${username}`; }
-function sessionKey(){ return `${APP_NS}:session`; }
-
-function loadCurrentUser(){
-  try{
-    const raw = localStorage.getItem(sessionKey());
-    if(!raw) return null;
-    const u = JSON.parse(raw);
-    if(!u?.username || !u?.pinHash) return null;
-    return u;
-  }catch{ return null; }
-}
-function saveCurrentUser(user){ localStorage.setItem(sessionKey(), JSON.stringify(user)); }
-function loadUserState(username){
-  try{
-    const raw = localStorage.getItem(userKey(username));
-    if(raw){
-      const parsed = JSON.parse(raw);
-      if(parsed?.books) return parsed;
-    }
-  }catch{}
-  for(const k of LEGACY_KEYS){
-    try{
-      const legacy = localStorage.getItem(k);
-      if(!legacy) continue;
-      const parsed = JSON.parse(legacy);
-      if(parsed?.books?.length){
-        return { books: parsed.books, __meta: { migratedFrom: k, migratedAt: Date.now() } };
-      }
-    }catch{}
-  }
-  return { books: [], __meta: {} };
-}
-function saveUserState(username, data){ localStorage.setItem(userKey(username), JSON.stringify(data)); }
-function saveState(){ if(currentUser) saveUserState(currentUser.username, state); }
-
-function setActiveUser(username, pin){
-  const u = safeUsername(username);
-  if(!u) throw new Error("Pseudo invalide");
-  if(!isValidPin(pin)) throw new Error("PIN invalide (4 chiffres)");
-  const pinHash = hashPin(pin);
-
-  const existingRaw = localStorage.getItem(userKey(u));
-  if(existingRaw){
-    const existing = JSON.parse(existingRaw);
-    const meta = existing?.__meta || {};
-    if(meta.pinHash && meta.pinHash !== pinHash) throw new Error("Code PIN incorrect");
-    currentUser = { username: u, pinHash };
-    saveCurrentUser(currentUser);
-    state = existing?.books ? existing : { books: [] };
-    state.__meta = state.__meta || {};
-    state.__meta.pinHash = pinHash;
-    state.__meta.lastLoginAt = Date.now();
-    saveState();
-    return;
-  }
-
-  currentUser = { username: u, pinHash };
-  saveCurrentUser(currentUser);
-  state = { books: [], __meta: { pinHash, createdAt: Date.now(), lastLoginAt: Date.now() } };
-  saveState();
-}
-function logout(){
-  localStorage.removeItem(sessionKey());
-  currentUser = null;
-  state = { books: [], __meta: {} };
-}
-
-/* ========= Utils ========= */
-function uid(){ return Math.random().toString(16).slice(2) + Date.now().toString(16); }
-function escapeHtml(str){
-  return String(str ?? "").replace(/[&<>"']/g, s => ({
-    "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"
-  }[s]));
-}
 function toAuthorsDisplay(authors){
   if(!authors || !authors.length) return "Auteur inconnu";
   return authors.join(", ");
 }
 function formatFormatLabel(book){ return book.format === "ebook" ? "Ebook" : "Wishlist"; }
 function formatIconFallback(book){ return book.format === "ebook" ? "📱" : "❤"; }
-
-/* ===== Edition helpers (kept for search part) ===== */
-function editionLabel(edition){
-  if(edition === "poche") return "Poche";
-  if(edition === "broche") return "Broché";
-  return "";
-}
-function applyEditionToQuery(query, edition){
-  if (String(query).startsWith("isbn:")) return query;
-  if (edition === "poche") return `${query} poche`;
-  if (edition === "broche") return `${query} broché`;
-  return query;
-}
-
-/* ===== Amazon ===== */
-function amazonSearchUrl(bookOrTitle, authors){
-  let title = "";
-  let author = "";
-  let edition = "";
-  if(typeof bookOrTitle === "string"){
-    title = bookOrTitle;
-    author = (authors && authors.length) ? authors[0] : "";
-  }else{
-    title = bookOrTitle?.title || "";
-    author = (bookOrTitle?.authors && bookOrTitle.authors.length) ? bookOrTitle.authors[0] : "";
-    edition = editionLabel(bookOrTitle?.edition || "");
-  }
-  const q = `${title} ${author} ${edition}`.trim();
+function amazonSearchUrl(book){
+  const title = book?.title || "";
+  const author = (book?.authors && book.authors.length) ? book.authors[0] : "";
+  const q = `${title} ${author}`.trim();
   return "https://www.amazon.fr/s?k=" + encodeURIComponent(q);
 }
-
-/* ===== Manual cover from gallery ===== */
-async function fileToResizedDataURL(file, maxW = 400, quality = 0.82){
-  if(!file) return "";
-  const img = await loadImageFromFile(file);
-  const ratio = img.width / img.height;
-  const w = Math.min(maxW, img.width);
-  const h = Math.round(w / ratio);
-  const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
-  const ctx = canvas.getContext("2d");
-  ctx.drawImage(img, 0, 0, w, h);
-  return canvas.toDataURL("image/jpeg", quality);
+function brandCenter(subtitle){
+  const who = authUser?.displayName ? `• ${escapeHtml(authUser.displayName)}` : "";
+  return `
+    <div class="brand-center">
+      <img src="./bbs-logo.png" alt="BBS">
+      <div class="name">Books By Siana</div>
+      <div class="sub">${escapeHtml(subtitle)} ${who}</div>
+    </div>
+  `;
 }
-function loadImageFromFile(file){
-  return new Promise((resolve, reject)=>{
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = ()=>{ URL.revokeObjectURL(url); resolve(img); };
-    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error("Image invalide")); };
-    img.src = url;
-  });
-}
-
-/* ===== SVG ICONS ===== */
-function svgReader(cls=""){ return `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.8" width="10" height="18.4" rx="2.2"></rect><line x1="9" y1="6" x2="15" y2="6"></line><circle cx="12" cy="18" r="0.9"></circle></svg>`; }
-function svgHeart(cls=""){ return `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.4 4.9c-1.6-1.7-4.2-1.7-5.8 0L12 7.5 9.4 4.9c-1.6-1.7-4.2-1.7-5.8 0-1.8 1.9-1.7 4.9.2 6.7L12 20l8.2-8.4c1.9-1.8 2-4.8.2-6.7z"></path></svg>`; }
-function svgOpenBook(cls=""){ return `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19c-2.2-1.5-5.2-2.2-8-2V6c2.8-.2 5.8.6 8 2"></path><path d="M12 19c2.2-1.5 5.2-2.2 8-2V6c-2.8-.2-5.8.6-8 2"></path><line x1="12" y1="8" x2="12" y2="19"></line></svg>`; }
-function svgClosedBook(cls=""){ return `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10a2 2 0 0 1 2 2v15a1.5 1.5 0 0 1-1.5 1.5H8.5A1.5 1.5 0 0 1 7 20V3z"></path><line x1="9" y1="7" x2="15" y2="7"></line><line x1="9" y1="11" x2="15" y2="11"></line><line x1="7" y1="20" x2="19" y2="20"></line></svg>`; }
-
-/* ========= Routing ========= */
 function show(route){
-  if(!currentUser && route !== "login") route = "login";
   currentRoute = route;
   document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
   document.getElementById("view-"+route).classList.add("active");
@@ -521,24 +392,61 @@ function show(route){
 }
 function backToHome(){ show("home"); }
 
-function brandCenter(subtitle){
-  const who = currentUser ? `• ${escapeHtml(currentUser.username)}` : "";
-  return `
-    <div class="brand-center">
-      <img src="./bbs-logo.png" alt="BBS">
-      <div class="name">Books By Siana</div>
-      <div class="sub">${escapeHtml(subtitle)} ${who}</div>
-    </div>
-  `;
+/* ===== SVG ICONS ===== */
+function svgReader(cls=""){ return `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.8" width="10" height="18.4" rx="2.2"></rect><line x1="9" y1="6" x2="15" y2="6"></line><circle cx="12" cy="18" r="0.9"></circle></svg>`; }
+function svgHeart(cls=""){ return `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.4 4.9c-1.6-1.7-4.2-1.7-5.8 0L12 7.5 9.4 4.9c-1.6-1.7-4.2-1.7-5.8 0-1.8 1.9-1.7 4.9.2 6.7L12 20l8.2-8.4c1.9-1.8 2-4.8.2-6.7z"></path></svg>`; }
+function svgOpenBook(cls=""){ return `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19c-2.2-1.5-5.2-2.2-8-2V6c2.8-.2 5.8.6 8 2"></path><path d="M12 19c2.2-1.5 5.2-2.2 8-2V6c-2.8-.2-5.8.6-8 2"></path><line x1="12" y1="8" x2="12" y2="19"></line></svg>`; }
+function svgClosedBook(cls=""){ return `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10a2 2 0 0 1 2 2v15a1.5 1.5 0 0 1-1.5 1.5H8.5A1.5 1.5 0 0 1 7 20V3z"></path><line x1="9" y1="7" x2="15" y2="7"></line><line x1="9" y1="11" x2="15" y2="11"></line><line x1="7" y1="20" x2="19" y2="20"></line></svg>`; }
+
+/* ===== Local resize (fallback / preview) ===== */
+async function fileToResizedDataURL(file, maxW = 400, quality = 0.82){
+  const img = await loadImageFromFile(file);
+  const ratio = img.width / img.height;
+  const w = Math.min(maxW, img.width);
+  const h = Math.round(w / ratio);
+  const canvas = document.createElement("canvas");
+  canvas.width = w; canvas.height = h;
+  canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+  return canvas.toDataURL("image/jpeg", quality);
+}
+function loadImageFromFile(file){
+  return new Promise((resolve, reject)=>{
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = ()=>{ URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error("Image invalide")); };
+    img.src = url;
+  });
 }
 
-/* ========= Login ========= */
+/* ===== Data helpers ===== */
+function getStats(){
+  const books = booksCache || [];
+  return {
+    ebooks: books.filter(b => b.format === "ebook" && !b.read && !b.acquired).length,
+    wishlist: books.filter(b => b.format === "wishlist" && !b.read && !b.acquired).length,
+    pal: books.filter(b => !b.read && b.acquired).length,
+    read: books.filter(b => b.read).length
+  };
+}
+function loadLocalCache(){
+  try{
+    const raw = localStorage.getItem(LOCAL_FALLBACK_KEY);
+    if(!raw) return [];
+    const p = JSON.parse(raw);
+    return Array.isArray(p?.books) ? p.books : [];
+  }catch{ return []; }
+}
+
+/* =========================
+   UI RENDER
+   ========================= */
 function renderLogin(){
   const root = document.getElementById("view-login");
   root.innerHTML = `
     ${brandCenter("Connexion")}
     <div class="panel">
-      <h2><span>Se connecter / Créer un compte</span></h2>
+      <h2><span>Connexion (pseudo + PIN 4 chiffres)</span></h2>
       <div class="content">
         <div class="row">
           <input class="input" id="lgUser" placeholder="Pseudo (ex: siana)" autocomplete="username" />
@@ -548,56 +456,34 @@ function renderLogin(){
           <button class="btn" id="lgBtn">Connexion</button>
         </div>
         <div class="hint" id="lgMsg"></div>
-        <div class="hint">⚠️ Sauvegarde locale : pour transférer sur un autre téléphone → Exporter / Importer.</div>
+        <div class="hint">Astuce : la synchro se fait automatiquement via Firestore/Storage (cloud).</div>
       </div>
     </div>
   `;
+
   const uEl = root.querySelector("#lgUser");
   const pEl = root.querySelector("#lgPin");
   const msg = root.querySelector("#lgMsg");
+
   pEl.addEventListener("input", ()=>{ pEl.value = pEl.value.replace(/[^0-9]/g, "").slice(0,4); });
-  root.querySelector("#lgBtn").onclick = ()=>{
+
+  root.querySelector("#lgBtn").onclick = async ()=>{
     msg.textContent = "";
-    try{ setActiveUser(uEl.value, pEl.value); show("home"); }
-    catch(e){ msg.textContent = e.message || "Erreur"; }
+    const username = safeUsername(uEl.value);
+    const pin = pEl.value;
+
+    if(!username){ msg.textContent = "Pseudo invalide."; return; }
+    if(!isValidPin(pin)){ msg.textContent = "PIN invalide (4 chiffres)."; return; }
+
+    try{
+      await window.BBS_CLOUD.signInOrCreate(username, pin);
+      // onAuthStateChanged va ensuite afficher home
+    }catch(e){
+      msg.textContent = (e && e.message) ? e.message : "Erreur de connexion";
+    }
   };
 }
 
-/* ========= Backup ========= */
-function exportBackup(){
-  if(!currentUser) return;
-  const payload = { app:"BooksBySiana", version:3, username: currentUser.username, exportedAt:new Date().toISOString(), data: state };
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type:"application/json" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `bbs-backup-${currentUser.username}.json`;
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
-async function importBackup(file){
-  if(!currentUser) return;
-  const text = await file.text();
-  const payload = JSON.parse(text);
-  if(!payload?.data?.books) throw new Error("Fichier invalide");
-  state = payload.data;
-  state.__meta = state.__meta || {};
-  state.__meta.pinHash = currentUser.pinHash;
-  saveState();
-  show("home");
-}
-
-/* ========= Stats ========= */
-function getStats(){
-  const books = state.books || [];
-  return {
-    ebooks: books.filter(b => b.format === "ebook" && !b.read && !b.acquired).length,
-    wishlist: books.filter(b => b.format === "wishlist" && !b.read && !b.acquired).length,
-    pal: books.filter(b => !b.read && b.acquired).length,
-    read: books.filter(b => b.read).length
-  };
-}
-
-/* ========= HOME ========= */
 function renderHome(){
   const root = document.getElementById("view-home");
   const s = getStats();
@@ -615,41 +501,36 @@ function renderHome(){
         </div>
 
         <div class="row" style="justify-content:center; margin-top:12px">
-          <button class="btn small" id="btnExport">Exporter</button>
-          <label class="btn small" style="cursor:pointer">Importer<input type="file" id="btnImport" accept="application/json" style="display:none"></label>
+          <button class="btn small" id="btnReload">Rafraîchir</button>
           <button class="btn small danger" id="btnLogout">Déconnexion</button>
-        </div>
-
-        <div class="hint" style="text-align:center; margin-top:10px">
-          Données sauvegardées <b>sur cet appareil</b> pour <b>${escapeHtml(currentUser.username)}</b>.
         </div>
       </div>
     </div>
   `;
+
   root.querySelector("#goEbooks").onclick = ()=> show("ebooks");
   root.querySelector("#goWishlist").onclick = ()=> show("wishlist");
   root.querySelector("#goPAL").onclick = ()=> show("pal");
   root.querySelector("#goRead").onclick = ()=> show("read");
   root.querySelector("#goAdd").onclick = ()=> show("add");
 
-  root.querySelector("#btnExport").onclick = exportBackup;
-  root.querySelector("#btnLogout").onclick = ()=>{ logout(); show("login"); };
-  root.querySelector("#btnImport").onchange = async (e)=>{
-    const f = e.target.files?.[0];
-    if(!f) return;
-    try{ await importBackup(f); }
-    catch(err){ alert(err.message || "Import impossible"); }
+  root.querySelector("#btnReload").onclick = async ()=>{
+    await window.BBS_CLOUD.reloadBooks();
+    show("home");
   };
+  root.querySelector("#btnLogout").onclick = async ()=>{ await window.BBS_CLOUD.signOut(); };
 }
 
-/* ========= Lists / Cards ========= */
+function rerenderCurrent(){ show(currentRoute); }
+window.rerenderCurrent = rerenderCurrent;
+
 function renderList(kind){
   const root = document.getElementById("view-"+kind);
   const isEbook = kind === "ebooks";
   const subtitle = isEbook ? "Ebooks" : "Wishlist";
   const format = isEbook ? "ebook" : "wishlist";
   const obtainLabel = isEbook ? "Téléchargé" : "Acheté";
-  const books = (state.books || []).filter(b => b.format === format && !b.read && !b.acquired);
+  const books = (booksCache || []).filter(b => b.format === format && !b.read && !b.acquired);
 
   root.innerHTML = `
     ${brandCenter(subtitle)}
@@ -686,6 +567,26 @@ function renderList(kind){
     title:(a,b)=> ( (a.title||"").localeCompare(b.title||"", "fr") )
   };
 
+  function renderCard(b){
+    const icon = (b.format === "ebook") ? "📱" : "❤";
+    const coverSrc = b.coverUrl || "";
+    const author = toAuthorsDisplay(b.authors);
+    return `
+      <div class="card" data-open="${escapeHtml(b.id)}">
+        <div class="cover">${coverSrc ? `<img src="${escapeHtml(coverSrc)}" alt="Couverture">` : icon}</div>
+        <div class="meta">
+          <p class="t">${escapeHtml(b.title || "Sans titre")}</p>
+          <p class="a">${escapeHtml(author)}${b.volumeNumber ? " • Tome " + escapeHtml(b.volumeNumber) : ""}</p>
+          <div class="actions">
+            <span class="chip" data-action="obtain" data-id="${escapeHtml(b.id)}">✓ ${escapeHtml(obtainLabel)}</span>
+            <a class="chip" href="${amazonSearchUrl(b)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Amazon</a>
+            <span class="chip danger" data-action="delete" data-id="${escapeHtml(b.id)}">🗑 Supprimer</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   function apply(){
     const query = (q.value||"").trim().toLowerCase();
     let filtered = books.slice();
@@ -693,7 +594,7 @@ function renderList(kind){
       filtered = filtered.filter(b => ([b.title, (b.authors||[]).join(" "), b.volumeNumber].join(" ").toLowerCase()).includes(query));
     }
     filtered.sort(sorter[sortSel.value] || sorter.created);
-    cards.innerHTML = filtered.length ? filtered.map(b => renderCardObtainable(b, obtainLabel)).join("") : `<div class="empty">Aucun livre ici.</div>`;
+    cards.innerHTML = filtered.length ? filtered.map(renderCard).join("") : `<div class="empty">Aucun livre ici.</div>`;
     bindCards(cards);
   }
   q.addEventListener("input", apply);
@@ -701,30 +602,9 @@ function renderList(kind){
   apply();
 }
 
-function renderCardObtainable(b, obtainLabel){
-  const icon = (b.format === "ebook") ? "📱" : "❤";
-  const coverSrc = b.coverData || b.coverUrl || "";
-  const author = toAuthorsDisplay(b.authors);
-  return `
-    <div class="card" data-open="${escapeHtml(b.id)}">
-      <div class="cover">${coverSrc ? `<img src="${escapeHtml(coverSrc)}" alt="Couverture">` : icon}</div>
-      <div class="meta">
-        <p class="t">${escapeHtml(b.title || "Sans titre")}</p>
-        <p class="a">${escapeHtml(author)}${b.volumeNumber ? " • Tome " + escapeHtml(b.volumeNumber) : ""}</p>
-        <div class="actions">
-          <span class="chip" data-action="obtain" data-id="${escapeHtml(b.id)}">✓ ${escapeHtml(obtainLabel)}</span>
-          <a class="chip" href="${amazonSearchUrl(b)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Amazon</a>
-          <span class="chip danger" data-action="delete" data-id="${escapeHtml(b.id)}">🗑 Supprimer</span>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-/* ========= PAL / READ (unchanged logic) ========= */
 function renderPAL(){
   const root = document.getElementById("view-pal");
-  const books = (state.books || []).filter(b => b.acquired && !b.read);
+  const books = (booksCache || []).filter(b => b.acquired && !b.read);
 
   root.innerHTML = `
     ${brandCenter("PAL (à lire)")}
@@ -742,16 +622,38 @@ function renderPAL(){
       <div id="cards" class="list"></div>
     </div>
   `;
+
   root.querySelector("#btnBack").onclick = backToHome;
 
   const q = root.querySelector("#q");
   const sortSel = root.querySelector("#sort");
   const cards = root.querySelector("#cards");
+
   const sorter = {
     created:(a,b)=>(b.createdAt||0)-(a.createdAt||0),
     author:(a,b)=> ( (a.authors?.[0]||"").localeCompare(b.authors?.[0]||"", "fr") || (a.title||"").localeCompare(b.title||"", "fr") ),
     title:(a,b)=> ( (a.title||"").localeCompare(b.title||"", "fr") )
   };
+
+  function renderCard(b){
+    const icon = (b.format === "ebook") ? "📱" : "❤";
+    const coverSrc = b.coverUrl || "";
+    const author = toAuthorsDisplay(b.authors);
+    return `
+      <div class="card" data-open="${escapeHtml(b.id)}">
+        <div class="cover">${coverSrc ? `<img src="${escapeHtml(coverSrc)}" alt="Couverture">` : icon}</div>
+        <div class="meta">
+          <p class="t">${escapeHtml(b.title || "Sans titre")}</p>
+          <p class="a">${escapeHtml(author)}${b.volumeNumber ? " • Tome " + escapeHtml(b.volumeNumber) : ""}</p>
+          <div class="actions">
+            <span class="chip" data-action="read" data-id="${escapeHtml(b.id)}">✓ Lu</span>
+            <a class="chip" href="${amazonSearchUrl(b)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Amazon</a>
+            <span class="chip danger" data-action="delete" data-id="${escapeHtml(b.id)}">🗑 Supprimer</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
 
   function apply(){
     const query = (q.value||"").trim().toLowerCase();
@@ -760,7 +662,7 @@ function renderPAL(){
       filtered = filtered.filter(b => ([b.title, (b.authors||[]).join(" "), b.volumeNumber].join(" ").toLowerCase()).includes(query));
     }
     filtered.sort(sorter[sortSel.value] || sorter.created);
-    cards.innerHTML = filtered.length ? filtered.map(b => renderCardPAL(b)).join("") : `<div class="empty">PAL vide.</div>`;
+    cards.innerHTML = filtered.length ? filtered.map(renderCard).join("") : `<div class="empty">PAL vide.</div>`;
     bindCards(cards);
   }
   q.addEventListener("input", apply);
@@ -768,29 +670,9 @@ function renderPAL(){
   apply();
 }
 
-function renderCardPAL(b){
-  const icon = (b.format === "ebook") ? "📱" : "❤";
-  const coverSrc = b.coverData || b.coverUrl || "";
-  const author = toAuthorsDisplay(b.authors);
-  return `
-    <div class="card" data-open="${escapeHtml(b.id)}">
-      <div class="cover">${coverSrc ? `<img src="${escapeHtml(coverSrc)}" alt="Couverture">` : icon}</div>
-      <div class="meta">
-        <p class="t">${escapeHtml(b.title || "Sans titre")}</p>
-        <p class="a">${escapeHtml(author)}${b.volumeNumber ? " • Tome " + escapeHtml(b.volumeNumber) : ""}</p>
-        <div class="actions">
-          <span class="chip" data-action="read" data-id="${escapeHtml(b.id)}">✓ Lu</span>
-          <a class="chip" href="${amazonSearchUrl(b)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Amazon</a>
-          <span class="chip danger" data-action="delete" data-id="${escapeHtml(b.id)}">🗑 Supprimer</span>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
 function renderRead(){
   const root = document.getElementById("view-read");
-  const books = (state.books || []).filter(b => b.read);
+  const books = (booksCache || []).filter(b => b.read);
 
   root.innerHTML = `
     ${brandCenter("Livres Lus")}
@@ -807,16 +689,39 @@ function renderRead(){
       <div id="cards" class="list"></div>
     </div>
   `;
+
   root.querySelector("#btnBack").onclick = backToHome;
 
   const q = root.querySelector("#q");
   const sortSel = root.querySelector("#sort");
   const cards = root.querySelector("#cards");
+
   const sorter = {
     readAt:(a,b)=>(b.readAt||0)-(a.readAt||0),
     author:(a,b)=> ( (a.authors?.[0]||"").localeCompare(b.authors?.[0]||"", "fr") || (a.title||"").localeCompare(b.title||"", "fr") ),
     title:(a,b)=> ( (a.title||"").localeCompare(b.title||"", "fr") )
   };
+
+  function renderCard(b){
+    const icon = (b.format === "ebook") ? "📱" : "❤";
+    const coverSrc = b.coverUrl || "";
+    const author = toAuthorsDisplay(b.authors);
+    const fmt = formatFormatLabel(b);
+    return `
+      <div class="card" data-open="${escapeHtml(b.id)}">
+        <div class="cover">${coverSrc ? `<img src="${escapeHtml(coverSrc)}" alt="Couverture">` : icon}</div>
+        <div class="meta">
+          <p class="t">${escapeHtml(b.title || "Sans titre")}</p>
+          <p class="a">${escapeHtml(author)}${b.volumeNumber ? " • Tome " + escapeHtml(b.volumeNumber) : ""}</p>
+          <div class="actions">
+            <span class="chip">${escapeHtml(fmt)}</span>
+            <a class="chip" href="${amazonSearchUrl(b)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Amazon</a>
+            <span class="chip danger" data-action="delete" data-id="${escapeHtml(b.id)}">🗑 Supprimer</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }
 
   function apply(){
     const query = (q.value||"").trim().toLowerCase();
@@ -825,44 +730,25 @@ function renderRead(){
       filtered = filtered.filter(b => ([b.title, (b.authors||[]).join(" "), b.volumeNumber].join(" ").toLowerCase()).includes(query));
     }
     filtered.sort(sorter[sortSel.value] || sorter.readAt);
-    cards.innerHTML = filtered.length ? filtered.map(b => renderCardRead(b)).join("") : `<div class="empty">Aucun livre lu pour l’instant.</div>`;
+    cards.innerHTML = filtered.length ? filtered.map(renderCard).join("") : `<div class="empty">Aucun livre lu pour l’instant.</div>`;
     bindCards(cards);
   }
-  q.addEventListener("input", apply);
-  sortSel.addEventListener("change", apply);
 
-  root.querySelector("#clear").onclick = ()=>{
+  root.querySelector("#clear").onclick = async ()=>{
     if(!confirm("Vider Livres Lus ?")) return;
-    state.books = (state.books || []).filter(b => !b.read);
-    saveState();
+    const toDelete = booksCache.filter(b => b.read);
+    for(const b of toDelete){
+      await window.BBS_CLOUD.deleteBook(b);
+    }
+    await window.BBS_CLOUD.reloadBooks();
     show("read");
   };
 
+  q.addEventListener("input", apply);
+  sortSel.addEventListener("change", apply);
   apply();
 }
 
-function renderCardRead(b){
-  const icon = (b.format === "ebook") ? "📱" : "❤";
-  const coverSrc = b.coverData || b.coverUrl || "";
-  const author = toAuthorsDisplay(b.authors);
-  const fmt = formatFormatLabel(b);
-  return `
-    <div class="card" data-open="${escapeHtml(b.id)}">
-      <div class="cover">${coverSrc ? `<img src="${escapeHtml(coverSrc)}" alt="Couverture">` : icon}</div>
-      <div class="meta">
-        <p class="t">${escapeHtml(b.title || "Sans titre")}</p>
-        <p class="a">${escapeHtml(author)}${b.volumeNumber ? " • Tome " + escapeHtml(b.volumeNumber) : ""}</p>
-        <div class="actions">
-          <span class="chip">${escapeHtml(fmt)}</span>
-          <a class="chip" href="${amazonSearchUrl(b)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Amazon</a>
-          <span class="chip danger" data-action="delete" data-id="${escapeHtml(b.id)}">🗑 Supprimer</span>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-/* ========= ADD (manual simplified) ========= */
 function renderAdd(){
   const root = document.getElementById("view-add");
 
@@ -885,12 +771,8 @@ function renderAdd(){
             <option value="ebook">Ebook</option>
             <option value="wishlist">Wishlist</option>
           </select>
-          <select id="editionPick">
-            <option value="auto">Édition : Auto</option>
-            <option value="poche">Édition : Poche</option>
-            <option value="broche">Édition : Broché</option>
-          </select>
         </div>
+        <div class="hint">Tu peux remplacer la couverture via la galerie dans la fiche du livre (clic sur la carte).</div>
       </div>
       <div class="content">
         <div id="searchStatus" class="hint"></div>
@@ -899,7 +781,7 @@ function renderAdd(){
     </div>
 
     <div class="panel">
-      <h2><span>Ajout manuel (simplifié)</span></h2>
+      <h2><span>Ajout manuel (Titre, Auteur, Tome + Galerie)</span></h2>
       <div class="content">
         <div class="row">
           <input class="input" id="mTitle" placeholder="Titre" />
@@ -915,8 +797,7 @@ function renderAdd(){
         <div class="row">
           <input class="input" id="mCoverFile" type="file" accept="image/*" />
         </div>
-        <div class="hint">La photo est compressée automatiquement pour ne pas saturer la mémoire.</div>
-
+        <div class="hint">La couverture est uploadée dans Firebase Storage (cloud).</div>
         <div class="row" style="margin-top:10px">
           <button class="btn" id="addManual">Ajouter</button>
           <button class="btn" id="resetManual">Réinitialiser</button>
@@ -927,13 +808,12 @@ function renderAdd(){
 
   root.querySelector("#btnBack").onclick = backToHome;
 
-  // Search part (unchanged)
+  // Auto search
   const q = root.querySelector("#searchQuery");
   const btn = root.querySelector("#searchBtn");
   const status = root.querySelector("#searchStatus");
   const results = root.querySelector("#searchResults");
   const formatPick = root.querySelector("#formatPick");
-  const editionPick = root.querySelector("#editionPick");
 
   btn.addEventListener("click", ()=> doSearch());
   q.addEventListener("keydown", (e)=>{ if(e.key==="Enter") doSearch(); });
@@ -947,30 +827,15 @@ function renderAdd(){
       results.innerHTML = "";
       return;
     }
-
-    const baseQuery = normalizeQueryForBooks(raw);
-    const edition = editionPick.value;
-    const query = applyEditionToQuery(baseQuery, edition);
-
     status.textContent = "Recherche en cours…";
     results.innerHTML = "";
 
     try{
-      const googleFR = await searchGoogleBooks(query, { lang: "fr" });
-      if(googleFR.length){
-        status.textContent = `Résultats (Google Books FR) : ${googleFR.length}`;
-        results.innerHTML = googleFR.map(b => renderSearchCard(b, edition)).join("");
-        bindSearchButtons(results, formatPick, editionPick);
-        return;
-      }
-    }catch{}
-
-    try{
-      const googleAll = await searchGoogleBooks(query, { lang: "" });
-      if(googleAll.length){
-        status.textContent = `Résultats (Google Books) : ${googleAll.length}`;
-        results.innerHTML = googleAll.map(b => renderSearchCard(b, edition)).join("");
-        bindSearchButtons(results, formatPick, editionPick);
+      const google = await searchGoogleBooks(raw);
+      if(google.length){
+        status.textContent = `Résultats (Google Books) : ${google.length}`;
+        results.innerHTML = google.map(renderSearchCard).join("");
+        bindSearchButtons(results, formatPick);
         return;
       }
     }catch{}
@@ -979,8 +844,8 @@ function renderAdd(){
       const ol = await searchOpenLibrary(raw);
       if(ol.length){
         status.textContent = `Résultats (Open Library) : ${ol.length}`;
-        results.innerHTML = ol.map(b => renderSearchCard(b, edition)).join("");
-        bindSearchButtons(results, formatPick, editionPick);
+        results.innerHTML = ol.map(renderSearchCard).join("");
+        bindSearchButtons(results, formatPick);
         return;
       }
     }catch{}
@@ -988,8 +853,7 @@ function renderAdd(){
     status.textContent = "Aucun résultat. Essaie titre + auteur, ou un ISBN.";
   }
 
-  function renderSearchCard(b, edition){
-    const amazon = amazonSearchUrl({ title: b.title, authors: b.authors, edition });
+  function renderSearchCard(b){
     return `
       <div class="card">
         <div class="cover">
@@ -997,30 +861,40 @@ function renderAdd(){
         </div>
         <div class="meta">
           <p class="t">${escapeHtml(b.title || "Sans titre")}</p>
-          <p class="a">${escapeHtml(toAuthorsDisplay(b.authors))}${edition && edition !== "auto" ? " • " + escapeHtml(editionLabel(edition)) : ""}</p>
+          <p class="a">${escapeHtml(toAuthorsDisplay(b.authors))}</p>
           <div class="actions">
             <span class="chip" data-action="add" data-id="${escapeHtml(b._previewId)}">➕ Ajouter</span>
-            <a class="chip" href="${amazon}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Amazon</a>
+            <a class="chip" href="${amazonSearchUrl({title:b.title,authors:b.authors})}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Amazon</a>
           </div>
         </div>
       </div>
     `;
   }
-  function bindSearchButtons(container, formatPickEl, editionPickEl){
+
+  function bindSearchButtons(container, formatPickEl){
     container.querySelectorAll('[data-action="add"]').forEach(el=>{
-      el.addEventListener("click", (e)=>{
+      el.addEventListener("click", async (e)=>{
         e.stopPropagation();
         const pid = el.dataset.id;
         const meta = window.__SEARCH_CACHE.get(pid);
         if(!meta) return;
-        addBook(meta, formatPickEl.value, editionPickEl.value);
-        saveState();
+
+        const book = makeBook({
+          title: meta.title,
+          authors: meta.authors,
+          volumeNumber: "",
+          format: formatPickEl.value,
+          coverUrl: meta.coverUrl || ""
+        });
+
+        await window.BBS_CLOUD.upsertBook(book);
+        await window.BBS_CLOUD.reloadBooks();
         status.textContent = "Ajouté ✅";
       });
     });
   }
 
-  // Manual add simplified
+  // Manual add
   root.querySelector("#addManual").addEventListener("click", async ()=>{
     const title = root.querySelector("#mTitle").value.trim();
     const author = root.querySelector("#mAuthor").value.trim();
@@ -1032,21 +906,26 @@ function renderAdd(){
     if(!author){ alert("Auteur obligatoire."); return; }
     if(!coverFile){ alert("Ajoute une couverture depuis ta galerie."); return; }
 
-    let coverData = "";
-    try{
-      coverData = await fileToResizedDataURL(coverFile, 400, 0.82);
-    }catch{
-      alert("Impossible de charger l’image.");
+    const book = makeBook({
+      title,
+      authors: [author],
+      volumeNumber,
+      format,
+      coverUrl: ""
+    });
+
+    // Upload cover to Storage
+    const upload = await window.BBS_CLOUD.uploadCover(book.id, coverFile);
+    if(!upload?.url){
+      alert("Erreur upload couverture (Storage). Vérifie que Storage est activé + règles OK.");
       return;
     }
+    book.coverUrl = upload.url;
+    book.coverStoragePath = upload.path;
 
-    addBook(
-      { title, authors: [author], series:"", volumeNumber, coverUrl:"", isbn:"", summary:"", coverData },
-      format,
-      "auto"
-    );
+    await window.BBS_CLOUD.upsertBook(book);
+    await window.BBS_CLOUD.reloadBooks();
 
-    saveState();
     root.querySelector("#resetManual").click();
     alert("Ajouté ✅");
   });
@@ -1058,41 +937,61 @@ function renderAdd(){
   });
 }
 
-/* ========= Actions ========= */
+function makeBook({title, authors, volumeNumber, format, coverUrl}){
+  return {
+    id: uid(),
+    title: title || "Sans titre",
+    authors: authors || [],
+    volumeNumber: volumeNumber || "",
+    format: format || "ebook",     // ebook | wishlist
+    acquired: false,               // true => PAL
+    read: false,                   // true => Livres Lus
+    coverUrl: coverUrl || "",
+    coverStoragePath: "",
+    createdAt: Date.now(),
+    readAt: null
+  };
+}
+
+/* ===== Cards actions ===== */
 function bindCards(container){
   container.querySelectorAll('[data-action="obtain"]').forEach(el=>{
-    el.addEventListener("click", (e)=>{
+    el.addEventListener("click", async (e)=>{
       e.stopPropagation();
       const id = el.dataset.id;
-      const book = (state.books || []).find(b => b.id === id);
+      const book = (booksCache || []).find(b => b.id === id);
       if(!book) return;
       book.acquired = true;
-      saveState();
+      await window.BBS_CLOUD.upsertBook(book);
+      await window.BBS_CLOUD.reloadBooks();
       show("pal");
     });
   });
 
   container.querySelectorAll('[data-action="read"]').forEach(el=>{
-    el.addEventListener("click", (e)=>{
+    el.addEventListener("click", async (e)=>{
       e.stopPropagation();
       const id = el.dataset.id;
-      const book = (state.books || []).find(b => b.id === id);
+      const book = (booksCache || []).find(b => b.id === id);
       if(!book) return;
       book.read = true;
       book.readAt = Date.now();
-      saveState();
+      await window.BBS_CLOUD.upsertBook(book);
+      await window.BBS_CLOUD.reloadBooks();
       show("read");
     });
   });
 
   container.querySelectorAll('[data-action="delete"]').forEach(el=>{
-    el.addEventListener("click", (e)=>{
+    el.addEventListener("click", async (e)=>{
       e.stopPropagation();
       const id = el.dataset.id;
+      const book = (booksCache || []).find(b => b.id === id);
+      if(!book) return;
       if(!confirm("Supprimer ce livre ?")) return;
-      state.books = (state.books || []).filter(b => b.id !== id);
-      saveState();
-      show(currentRoute);
+      await window.BBS_CLOUD.deleteBook(book);
+      await window.BBS_CLOUD.reloadBooks();
+      rerenderCurrent();
     });
   });
 
@@ -1101,60 +1000,27 @@ function bindCards(container){
   });
 }
 
-/* ========= Book add ========= */
-function addBook(meta, format, edition="auto"){
-  const book = {
-    id: uid(),
-    title: meta.title || "Sans titre",
-    authors: meta.authors || [],
-    series: meta.series || "",
-    volumeNumber: meta.volumeNumber || "",
-    format: format || "ebook",
-    edition: edition || "auto",
-    summary: meta.summary || "",
-    coverUrl: meta.coverUrl || "",
-    coverData: meta.coverData || "",
-    isbn: meta.isbn || "",
-    acquired: false,
-    read: false,
-    createdAt: Date.now(),
-    readAt: null
-  };
-
-  state.books = state.books || [];
-  const key = (book.title + "|" + (book.authors?.[0]||"") + "|" + book.format + "|" + (book.volumeNumber||"")).toLowerCase();
-  const exists = state.books.some(b=>{
-    const k = (b.title + "|" + (b.authors?.[0]||"") + "|" + b.format + "|" + (b.volumeNumber||"")).toLowerCase();
-    return k === key;
-  });
-  if(exists) return;
-
-  state.books.unshift(book);
-}
-
-/* ========= Modal ========= */
+/* ===== Modal ===== */
 function openModal(id){
-  const book = (state.books || []).find(b => b.id === id);
+  const book = (booksCache || []).find(b => b.id === id);
   if(!book) return;
 
   document.getElementById("modalTitle").textContent = book.title || "Sans titre";
   document.getElementById("modalAuthor").textContent = toAuthorsDisplay(book.authors);
 
   const cover = document.getElementById("modalCover");
-  const coverSrc = book.coverData || book.coverUrl || "";
+  const coverSrc = book.coverUrl || "";
   cover.innerHTML = coverSrc
     ? `<img src="${escapeHtml(coverSrc)}" alt="Couverture">`
     : `<div style="display:grid;place-items:center;height:100%;color:rgba(255,255,255,.35);font-weight:900;font-size:40px">${formatIconFallback(book)}</div>`;
 
-  document.getElementById("modalDesc").textContent = (book.summary || "Aucune description trouvée.").trim();
-
+  document.getElementById("modalDesc").textContent = "—";
   document.getElementById("modalBadges").innerHTML = `
     <span class="chip">${escapeHtml(formatFormatLabel(book))}</span>
     ${book.volumeNumber ? `<span class="chip">Tome ${escapeHtml(book.volumeNumber)}</span>` : ""}
     ${book.acquired ? `<span class="chip">PAL</span>` : `<span class="chip">À obtenir</span>`}
     ${book.read ? `<span class="chip">Lu</span>` : ``}
   `;
-
   document.getElementById("modalAmazon").href = amazonSearchUrl(book);
 
   const fileInput = document.getElementById("modalCoverFile");
@@ -1162,30 +1028,47 @@ function openModal(id){
   fileInput.onchange = async (e)=>{
     const file = e.target.files?.[0];
     if(!file) return;
-    try{
-      const data = await fileToResizedDataURL(file, 400, 0.82);
-      book.coverData = data;
-      saveState();
-      openModal(id);
-    }catch{
-      alert("Impossible de charger l’image.");
-    }
-  };
 
-  document.getElementById("modalRemoveCover").onclick = ()=>{
-    if(!book.coverData){ alert("Aucune couverture locale à retirer."); return; }
-    if(!confirm("Retirer la couverture ajoutée depuis la galerie ?")) return;
-    book.coverData = "";
-    saveState();
+    const upload = await window.BBS_CLOUD.uploadCover(book.id, file);
+    if(!upload?.url){
+      alert("Erreur upload couverture (Storage). Vérifie Storage + règles.");
+      return;
+    }
+
+    // supprime l'ancienne cover storage si existante
+    if(book.coverStoragePath && book.coverStoragePath !== upload.path){
+      await window.BBS_CLOUD.deleteCoverByPath(book.coverStoragePath);
+    }
+
+    book.coverUrl = upload.url;
+    book.coverStoragePath = upload.path;
+
+    await window.BBS_CLOUD.upsertBook(book);
+    await window.BBS_CLOUD.reloadBooks();
     openModal(id);
   };
 
-  document.getElementById("modalDelete").onclick = ()=>{
+  document.getElementById("modalRemoveCover").onclick = async ()=>{
+    if(!book.coverUrl){ alert("Aucune couverture à retirer."); return; }
+    if(!confirm("Retirer la couverture ?")) return;
+
+    if(book.coverStoragePath){
+      await window.BBS_CLOUD.deleteCoverByPath(book.coverStoragePath);
+      book.coverStoragePath = "";
+    }
+    book.coverUrl = "";
+
+    await window.BBS_CLOUD.upsertBook(book);
+    await window.BBS_CLOUD.reloadBooks();
+    openModal(id);
+  };
+
+  document.getElementById("modalDelete").onclick = async ()=>{
     if(!confirm("Supprimer ce livre ?")) return;
-    state.books = (state.books || []).filter(b => b.id !== id);
-    saveState();
+    await window.BBS_CLOUD.deleteBook(book);
+    await window.BBS_CLOUD.reloadBooks();
     closeModal();
-    show(currentRoute);
+    rerenderCurrent();
   };
 
   document.getElementById("modalBackdrop").style.display = "flex";
@@ -1196,28 +1079,14 @@ document.getElementById("modalBackdrop").addEventListener("click", (e)=>{
   if(e.target.id === "modalBackdrop") closeModal();
 });
 
-/* ========= Search helpers / APIs (kept) ========= */
-function normalizeQueryForBooks(raw){
-  const cleaned = String(raw).trim();
-  const isbn = extractISBN(cleaned);
-  if(isbn) return "isbn:" + isbn;
-  return cleaned;
-}
-function extractISBN(text){
-  const compact = String(text).toUpperCase().replace(/[^0-9X]/g, "");
-  if(compact.length === 10 || compact.length === 13){
-    if(compact.length === 13 && compact.includes("X")) return null;
-    return compact;
-  }
-  return null;
-}
-async function searchGoogleBooks(query, opts = { lang: "fr" }){
+/* ===== External search ===== */
+async function searchGoogleBooks(query){
   const url = new URL("https://www.googleapis.com/books/v1/volumes");
   url.searchParams.set("q", query);
   url.searchParams.set("maxResults", "20");
   url.searchParams.set("printType", "books");
   url.searchParams.set("orderBy", "relevance");
-  if(opts?.lang) url.searchParams.set("langRestrict", opts.lang);
+
   const res = await fetch(url.toString());
   if(!res.ok) throw new Error("Google Books HTTP " + res.status);
   const data = await res.json();
@@ -1230,11 +1099,7 @@ async function searchGoogleBooks(query, opts = { lang: "fr" }){
       _previewId: uid(),
       title: v.title || "",
       authors: v.authors || [],
-      summary: (v.description || "").replace(/<[^>]*>/g, "").trim(),
-      isbn: pickIsbn(v.industryIdentifiers || []),
-      coverUrl: normalizeCover(pickGoogleCover(v.imageLinks)),
-      series: "",
-      volumeNumber: ""
+      coverUrl: normalizeCover(pickGoogleCover(v.imageLinks))
     };
     window.__SEARCH_CACHE.set(meta._previewId, meta);
     out.push(meta);
@@ -1251,13 +1116,6 @@ function normalizeCover(url){
   u = u.replace(/zoom=\d/g, "zoom=2");
   return u;
 }
-function pickIsbn(ids){
-  const byType = {};
-  for(const id of ids){
-    if(id?.type && id?.identifier) byType[id.type] = id.identifier;
-  }
-  return byType.ISBN_13 || byType.ISBN_10 || "";
-}
 async function searchOpenLibrary(query){
   const url = new URL("https://openlibrary.org/search.json");
   url.searchParams.set("q", query);
@@ -1273,11 +1131,7 @@ async function searchOpenLibrary(query){
       _previewId: uid(),
       title: d.title || "",
       authors: d.author_name ? d.author_name.slice(0,3) : [],
-      summary: "",
-      isbn: d.isbn ? d.isbn[0] : "",
-      coverUrl: d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg` : "",
-      series: "",
-      volumeNumber: ""
+      coverUrl: d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg` : ""
     };
     window.__SEARCH_CACHE.set(meta._previewId, meta);
     out.push(meta);
@@ -1285,23 +1139,172 @@ async function searchOpenLibrary(query){
   return out;
 }
 
-/* ========= PWA SW ========= */
-if("serviceWorker" in navigator){
-  window.addEventListener("load", ()=>{
-    navigator.serviceWorker.register("./sw.js?v=11").catch(()=>{});
-  });
-}
+// expose global bridges for firebase module
+Object.defineProperty(window, "booksCache", { get(){ return booksCache; }, set(v){ booksCache = Array.isArray(v) ? v : []; } });
+Object.defineProperty(window, "authUser", { get(){ return authUser; }, set(v){ authUser = v; } });
 
-/* INIT */
-if(currentUser){
-  state = loadUserState(currentUser.username);
-  state.__meta = state.__meta || {};
-  state.__meta.pinHash = currentUser.pinHash;
-  saveState();
-  show("home");
-}else{
-  show("login");
-}
+// start UI
+show("login");
+</script>
+
+<!-- =========================
+     FIREBASE (Cloud)
+     ========================= -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+  import {
+    getAuth,
+    signInWithEmailAndPassword,
+    createUserWithEmailAndPassword,
+    setPersistence,
+    browserLocalPersistence,
+    updateProfile,
+    signOut as fbSignOut,
+    onAuthStateChanged
+  } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+
+  import {
+    getFirestore,
+    collection,
+    doc,
+    setDoc,
+    getDocs,
+    deleteDoc,
+    enableIndexedDbPersistence
+  } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+
+  import {
+    getStorage,
+    ref,
+    uploadBytes,
+    getDownloadURL,
+    deleteObject
+  } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-storage.js";
+
+  // ✅ TON CONFIG (corrigé + complet)
+  const firebaseConfig = {
+    apiKey: "AIzaSyBP7qg9V9fZE6tdAJN93yXX7tRyij75EUU",
+    authDomain: "booksbysiana.firebaseapp.com",
+    projectId: "booksbysiana",
+    storageBucket: "booksbysiana.firebasestorage.app",
+    messagingSenderId: "948417171584",
+    appId: "1:948417171584:web:2bd0d48eadddccb7c11665"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  // ✅ Storage : on force le bucket au format gs://...
+  const storage = getStorage(app, `gs://${firebaseConfig.storageBucket}`);
+
+  // Offline Firestore (bonus)
+  try { await enableIndexedDbPersistence(db); } catch {}
+
+  await setPersistence(auth, browserLocalPersistence);
+
+  const SALT = "BBS_2025";
+  function loginEmail(username){ return `${username}@bbs.local`; }
+  function loginPassword(pin){ return `${String(pin)}_${SALT}`; }
+
+  async function signInOrCreate(username, pin){
+    const email = loginEmail(username);
+    const password = loginPassword(pin);
+
+    try{
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      if(!auth.currentUser.displayName){
+        await updateProfile(auth.currentUser, { displayName: username });
+      }
+      return cred;
+    }catch{
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      await updateProfile(auth.currentUser, { displayName: username });
+      return cred;
+    }
+  }
+
+  async function loadBooks(){
+    if(!auth.currentUser) return [];
+    const uid = auth.currentUser.uid;
+    const snap = await getDocs(collection(db, `users/${uid}/books`));
+    const books = [];
+    snap.forEach(d => books.push(d.data()));
+    books.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+    return books;
+  }
+
+  async function reloadBooks(){
+    const cloud = await loadBooks();
+    window.booksCache = cloud;
+    try{
+      localStorage.setItem("bbs_local_cache_v1", JSON.stringify({ books: cloud, savedAt: Date.now() }));
+    }catch{}
+    window.rerenderCurrent?.();
+  }
+
+  async function upsertBook(book){
+    const uid = auth.currentUser.uid;
+    await setDoc(doc(db, `users/${uid}/books/${book.id}`), book, { merge:true });
+  }
+
+  async function deleteBook(book){
+    const uid = auth.currentUser.uid;
+
+    if(book.coverStoragePath){
+      try{ await deleteObject(ref(storage, book.coverStoragePath)); }catch{}
+    }
+    await deleteDoc(doc(db, `users/${uid}/books/${book.id}`));
+  }
+
+  async function uploadCover(bookId, file){
+    const uid = auth.currentUser.uid;
+    const path = `users/${uid}/covers/${bookId}.jpg`;
+
+    // Upload direct (simple et fiable)
+    const r = ref(storage, path);
+    await uploadBytes(r, file);
+    const url = await getDownloadURL(r);
+    return { url, path };
+  }
+
+  async function deleteCoverByPath(path){
+    if(!path) return;
+    try{ await deleteObject(ref(storage, path)); }catch{}
+  }
+
+  async function signOut(){
+    await fbSignOut(auth);
+  }
+
+  window.BBS_CLOUD = {
+    signInOrCreate,
+    reloadBooks,
+    upsertBook,
+    deleteBook,
+    uploadCover,
+    deleteCoverByPath,
+    signOut
+  };
+
+  onAuthStateChanged(auth, async (user)=>{
+    window.authUser = user || null;
+    if(user){
+      await reloadBooks();
+      window.show?.("home");
+    }else{
+      const fallback = (function(){
+        try{
+          const raw = localStorage.getItem("bbs_local_cache_v1");
+          if(!raw) return [];
+          const p = JSON.parse(raw);
+          return Array.isArray(p?.books) ? p.books : [];
+        }catch{ return []; }
+      })();
+      window.booksCache = fallback;
+      window.show?.("login");
+    }
+  });
 </script>
 </body>
 </html>
