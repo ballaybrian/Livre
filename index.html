@@ -323,6 +323,11 @@
       </div>
 
       <div class="mfoot">
+        <label class="btn small" style="cursor:pointer">
+          Couverture
+          <input id="modalCoverFile" type="file" accept="image/*" style="display:none">
+        </label>
+        <button class="btn small" id="modalRemoveCover">Retirer</button>
         <a class="btn small" id="modalAmazon" target="_blank" rel="noopener">Amazon</a>
         <button class="btn danger small" id="modalDelete">Supprimer</button>
       </div>
@@ -330,11 +335,11 @@
   </div>
 
 <script>
-/* Books By Siana - v9 (Local accounts PIN 4 digits + per-user save + edition + better search) */
+/* Books By Siana - v10 (Local accounts PIN 4 digits + per-user save + edition + manual cover from gallery) */
 
 /* ========= Accounts / Storage ========= */
 const APP_NS = "bbs";
-const LEGACY_KEYS = ["bbs.books.v6", "bbs.books.v7", "bbs.books.v8", "bbs.books.v9"];
+const LEGACY_KEYS = ["bbs.books.v6", "bbs.books.v7", "bbs.books.v8", "bbs.books.v9", "bbs.books.v10"];
 let currentUser = loadCurrentUser(); // { username, pinHash } or null
 let state = { books: [], __meta: {} };
 let currentRoute = "home";
@@ -351,7 +356,6 @@ function isValidPin(pin){
   return /^[0-9]{4}$/.test(String(pin || ""));
 }
 function hashPin(pin){
-  // Light local hash (not crypto) – enough to separate users on one device
   const s = String(pin || "");
   let h = 2166136261;
   for(let i=0;i<s.length;i++){
@@ -384,7 +388,6 @@ function loadUserState(username){
     }
   }catch{}
 
-  // Migration: try to recover legacy data (first time user logs in)
   for(const k of LEGACY_KEYS){
     try{
       const legacy = localStorage.getItem(k);
@@ -411,7 +414,6 @@ function setActiveUser(username, pin){
 
   const pinHash = hashPin(pin);
 
-  // If user exists, check PIN
   const existingRaw = localStorage.getItem(userKey(u));
   if(existingRaw){
     const existing = JSON.parse(existingRaw);
@@ -429,7 +431,6 @@ function setActiveUser(username, pin){
     return;
   }
 
-  // New user
   currentUser = { username: u, pinHash };
   saveCurrentUser(currentUser);
   state = { books: [], __meta: { pinHash, createdAt: Date.now(), lastLoginAt: Date.now() } };
@@ -483,6 +484,33 @@ function amazonSearchUrl(bookOrTitle, authors){
   }
   const q = `${title} ${author} ${edition}`.trim();
   return "https://www.amazon.fr/s?k=" + encodeURIComponent(q);
+}
+
+/* ===== Manual cover from gallery (resize + compress) ===== */
+async function fileToResizedDataURL(file, maxW = 400, quality = 0.82){
+  if(!file) return "";
+  const img = await loadImageFromFile(file);
+
+  const ratio = img.width / img.height;
+  const w = Math.min(maxW, img.width);
+  const h = Math.round(w / ratio);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0, w, h);
+
+  return canvas.toDataURL("image/jpeg", quality);
+}
+function loadImageFromFile(file){
+  return new Promise((resolve, reject)=>{
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = ()=>{ URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error("Image invalide")); };
+    img.src = url;
+  });
 }
 
 /* ===== SVG ICONS ===== */
@@ -567,6 +595,7 @@ function renderLogin(){
           <button class="btn" id="lgBtn">Connexion</button>
         </div>
         <div class="hint" id="lgMsg"></div>
+        <div class="hint">⚠️ Sauvegarde locale : pour transférer sur un autre téléphone → Exporter / Importer.</div>
       </div>
     </div>
   `;
@@ -595,7 +624,7 @@ function exportBackup(){
   if(!currentUser) return;
   const payload = {
     app: "BooksBySiana",
-    version: 1,
+    version: 2,
     username: currentUser.username,
     exportedAt: new Date().toISOString(),
     data: state
@@ -780,10 +809,11 @@ function renderCardObtainable(b, obtainLabel){
   const icon = (b.format === "ebook") ? "📱" : "❤";
   const author = toAuthorsDisplay(b.authors);
   const ed = editionLabel(b.edition);
+  const coverSrc = b.coverData || b.coverUrl || "";
   return `
     <div class="card" data-open="${escapeHtml(b.id)}">
       <div class="cover">
-        ${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="Couverture">` : icon}
+        ${(coverSrc) ? `<img src="${escapeHtml(coverSrc)}" alt="Couverture">` : icon}
       </div>
       <div class="meta">
         <p class="t">${escapeHtml(b.title || "Sans titre")}</p>
@@ -872,10 +902,11 @@ function renderCardPAL(b){
   const icon = (b.format === "ebook") ? "📱" : "❤";
   const author = toAuthorsDisplay(b.authors);
   const ed = editionLabel(b.edition);
+  const coverSrc = b.coverData || b.coverUrl || "";
   return `
     <div class="card" data-open="${escapeHtml(b.id)}">
       <div class="cover">
-        ${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="Couverture">` : icon}
+        ${(coverSrc) ? `<img src="${escapeHtml(coverSrc)}" alt="Couverture">` : icon}
       </div>
       <div class="meta">
         <p class="t">${escapeHtml(b.title || "Sans titre")}</p>
@@ -972,10 +1003,11 @@ function renderCardRead(b){
   const author = toAuthorsDisplay(b.authors);
   const fmt = formatFormatLabel(b);
   const ed = editionLabel(b.edition);
+  const coverSrc = b.coverData || b.coverUrl || "";
   return `
     <div class="card" data-open="${escapeHtml(b.id)}">
       <div class="cover">
-        ${b.coverUrl ? `<img src="${escapeHtml(b.coverUrl)}" alt="Couverture">` : icon}
+        ${(coverSrc) ? `<img src="${escapeHtml(coverSrc)}" alt="Couverture">` : icon}
       </div>
       <div class="meta">
         <p class="t">${escapeHtml(b.title || "Sans titre")}</p>
@@ -1051,6 +1083,10 @@ function renderAdd(){
           <input class="input" id="mCover" placeholder="URL couverture (optionnel)" />
           <input class="input" id="mIsbn" placeholder="ISBN (optionnel)" />
         </div>
+        <div class="row">
+          <input class="input" id="mCoverFile" type="file" accept="image/*" />
+        </div>
+        <div class="hint" id="mCoverHint">Si tu choisis une image, elle remplace l’URL de couverture. (compressée automatiquement)</div>
         <textarea class="input" id="mSummary" placeholder="Résumé (optionnel)"></textarea>
         <div class="row" style="margin-top:10px">
           <button class="btn" id="addManual">Ajouter</button>
@@ -1089,7 +1125,6 @@ function renderAdd(){
     status.textContent = "Recherche en cours…";
     results.innerHTML = "";
 
-    // 1) Google Books FR
     try{
       const googleFR = await searchGoogleBooks(query, { lang: "fr" });
       if(googleFR.length){
@@ -1100,7 +1135,6 @@ function renderAdd(){
       }
     }catch{}
 
-    // 2) Google Books global
     try{
       const googleAll = await searchGoogleBooks(query, { lang: "" });
       if(googleAll.length){
@@ -1111,7 +1145,6 @@ function renderAdd(){
       }
     }catch{}
 
-    // 3) Open Library fallback
     try{
       const ol = await searchOpenLibrary(raw);
       if(ol.length){
@@ -1158,7 +1191,7 @@ function renderAdd(){
     });
   }
 
-  root.querySelector("#addManual").addEventListener("click", ()=>{
+  root.querySelector("#addManual").addEventListener("click", async ()=>{
     const title = root.querySelector("#mTitle").value.trim();
     const author = root.querySelector("#mAuthor").value.trim();
     const series = root.querySelector("#mSeries").value.trim();
@@ -1168,10 +1201,25 @@ function renderAdd(){
     const summary = root.querySelector("#mSummary").value.trim();
     const format = root.querySelector("#mFormat").value;
     const edition = root.querySelector("#mEdition").value;
+    const coverFile = root.querySelector("#mCoverFile").files?.[0] || null;
 
     if(!title){ alert("Titre obligatoire."); return; }
 
-    addBook({ title, authors: author ? [author] : [], series, volumeNumber, coverUrl, isbn, summary }, format, edition);
+    let coverData = "";
+    if(coverFile){
+      try{
+        coverData = await fileToResizedDataURL(coverFile, 400, 0.82);
+      }catch{
+        coverData = "";
+      }
+    }
+
+    addBook(
+      { title, authors: author ? [author] : [], series, volumeNumber, coverUrl, isbn, summary, coverData },
+      format,
+      edition
+    );
+
     saveState();
     root.querySelector("#resetManual").click();
     alert("Ajouté ✅");
@@ -1183,6 +1231,7 @@ function renderAdd(){
     });
     root.querySelector("#mFormat").value = "ebook";
     root.querySelector("#mEdition").value = "auto";
+    root.querySelector("#mCoverFile").value = "";
   });
 }
 
@@ -1241,6 +1290,7 @@ function addBook(meta, format, edition="auto"){
     edition: edition || "auto",
     summary: meta.summary || "",
     coverUrl: meta.coverUrl || "",
+    coverData: meta.coverData || "", // ✅ from gallery
     isbn: meta.isbn || "",
     acquired: false,
     read: false,
@@ -1272,8 +1322,9 @@ function openModal(id){
   document.getElementById("modalTitle").textContent = book.title || "Sans titre";
   document.getElementById("modalAuthor").textContent = toAuthorsDisplay(book.authors);
 
-  cover.innerHTML = book.coverUrl
-    ? `<img src="${escapeHtml(book.coverUrl)}" alt="Couverture">`
+  const coverSrc = book.coverData || book.coverUrl || "";
+  cover.innerHTML = coverSrc
+    ? `<img src="${escapeHtml(coverSrc)}" alt="Couverture">`
     : `<div style="display:grid;place-items:center;height:100%;color:rgba(255,255,255,.35);font-weight:900;font-size:40px">${formatIconFallback(book)}</div>`;
 
   desc.textContent = (book.summary || "Aucune description trouvée.").trim();
@@ -1288,6 +1339,34 @@ function openModal(id){
   `;
 
   document.getElementById("modalAmazon").href = amazonSearchUrl(book);
+
+  // Change cover (gallery)
+  const fileInput = document.getElementById("modalCoverFile");
+  fileInput.value = "";
+  fileInput.onchange = async (e)=>{
+    const file = e.target.files?.[0];
+    if(!file) return;
+    try{
+      const data = await fileToResizedDataURL(file, 400, 0.82);
+      book.coverData = data;
+      saveState();
+      openModal(id); // refresh modal
+    }catch{
+      alert("Impossible de charger l’image.");
+    }
+  };
+
+  // Remove manual cover
+  document.getElementById("modalRemoveCover").onclick = ()=>{
+    if(!book.coverData){
+      alert("Aucune couverture locale à retirer.");
+      return;
+    }
+    if(!confirm("Retirer la couverture ajoutée depuis la galerie ?")) return;
+    book.coverData = "";
+    saveState();
+    openModal(id);
+  };
 
   document.getElementById("modalDelete").onclick = ()=>{
     if(!confirm("Supprimer ce livre ?")) return;
@@ -1406,13 +1485,12 @@ async function searchOpenLibrary(query){
 /* ========= PWA SW ========= */
 if("serviceWorker" in navigator){
   window.addEventListener("load", ()=>{
-    navigator.serviceWorker.register("./sw.js?v=9").catch(()=>{});
+    navigator.serviceWorker.register("./sw.js?v=10").catch(()=>{});
   });
 }
 
 /* INIT */
 if(currentUser){
-  // Load user state
   state = loadUserState(currentUser.username);
   state.__meta = state.__meta || {};
   state.__meta.pinHash = currentUser.pinHash;
