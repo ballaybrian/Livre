@@ -335,12 +335,12 @@
   </div>
 
 <script>
-/* Books By Siana - v10 (Local accounts PIN 4 digits + per-user save + edition + manual cover from gallery) */
+/* Books By Siana - v11 (Manual add simplified: Title, Author, Tome + gallery cover) */
 
 /* ========= Accounts / Storage ========= */
 const APP_NS = "bbs";
-const LEGACY_KEYS = ["bbs.books.v6", "bbs.books.v7", "bbs.books.v8", "bbs.books.v9", "bbs.books.v10"];
-let currentUser = loadCurrentUser(); // { username, pinHash } or null
+const LEGACY_KEYS = ["bbs.books.v6", "bbs.books.v7", "bbs.books.v8", "bbs.books.v9", "bbs.books.v10", "bbs.books.v11"];
+let currentUser = loadCurrentUser();
 let state = { books: [], __meta: {} };
 let currentRoute = "home";
 
@@ -352,9 +352,7 @@ function safeUsername(u){
     .replace(/[^a-z0-9_\-]/g, "")
     .slice(0, 24);
 }
-function isValidPin(pin){
-  return /^[0-9]{4}$/.test(String(pin || ""));
-}
+function isValidPin(pin){ return /^[0-9]{4}$/.test(String(pin || "")); }
 function hashPin(pin){
   const s = String(pin || "");
   let h = 2166136261;
@@ -376,9 +374,7 @@ function loadCurrentUser(){
     return u;
   }catch{ return null; }
 }
-function saveCurrentUser(user){
-  localStorage.setItem(sessionKey(), JSON.stringify(user));
-}
+function saveCurrentUser(user){ localStorage.setItem(sessionKey(), JSON.stringify(user)); }
 function loadUserState(username){
   try{
     const raw = localStorage.getItem(userKey(username));
@@ -387,7 +383,6 @@ function loadUserState(username){
       if(parsed?.books) return parsed;
     }
   }catch{}
-
   for(const k of LEGACY_KEYS){
     try{
       const legacy = localStorage.getItem(k);
@@ -400,27 +395,20 @@ function loadUserState(username){
   }
   return { books: [], __meta: {} };
 }
-function saveUserState(username, data){
-  localStorage.setItem(userKey(username), JSON.stringify(data));
-}
-function saveState(){
-  if(!currentUser) return;
-  saveUserState(currentUser.username, state);
-}
+function saveUserState(username, data){ localStorage.setItem(userKey(username), JSON.stringify(data)); }
+function saveState(){ if(currentUser) saveUserState(currentUser.username, state); }
+
 function setActiveUser(username, pin){
   const u = safeUsername(username);
   if(!u) throw new Error("Pseudo invalide");
   if(!isValidPin(pin)) throw new Error("PIN invalide (4 chiffres)");
-
   const pinHash = hashPin(pin);
 
   const existingRaw = localStorage.getItem(userKey(u));
   if(existingRaw){
     const existing = JSON.parse(existingRaw);
     const meta = existing?.__meta || {};
-    if(meta.pinHash && meta.pinHash !== pinHash){
-      throw new Error("Code PIN incorrect");
-    }
+    if(meta.pinHash && meta.pinHash !== pinHash) throw new Error("Code PIN incorrect");
     currentUser = { username: u, pinHash };
     saveCurrentUser(currentUser);
     state = existing?.books ? existing : { books: [] };
@@ -456,7 +444,7 @@ function toAuthorsDisplay(authors){
 function formatFormatLabel(book){ return book.format === "ebook" ? "Ebook" : "Wishlist"; }
 function formatIconFallback(book){ return book.format === "ebook" ? "📱" : "❤"; }
 
-/* ===== Edition helpers ===== */
+/* ===== Edition helpers (kept for search part) ===== */
 function editionLabel(edition){
   if(edition === "poche") return "Poche";
   if(edition === "broche") return "Broché";
@@ -469,7 +457,7 @@ function applyEditionToQuery(query, edition){
   return query;
 }
 
-/* ===== Amazon link builder ===== */
+/* ===== Amazon ===== */
 function amazonSearchUrl(bookOrTitle, authors){
   let title = "";
   let author = "";
@@ -486,21 +474,18 @@ function amazonSearchUrl(bookOrTitle, authors){
   return "https://www.amazon.fr/s?k=" + encodeURIComponent(q);
 }
 
-/* ===== Manual cover from gallery (resize + compress) ===== */
+/* ===== Manual cover from gallery ===== */
 async function fileToResizedDataURL(file, maxW = 400, quality = 0.82){
   if(!file) return "";
   const img = await loadImageFromFile(file);
-
   const ratio = img.width / img.height;
   const w = Math.min(maxW, img.width);
   const h = Math.round(w / ratio);
-
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext("2d");
   ctx.drawImage(img, 0, 0, w, h);
-
   return canvas.toDataURL("image/jpeg", quality);
 }
 function loadImageFromFile(file){
@@ -514,47 +499,15 @@ function loadImageFromFile(file){
 }
 
 /* ===== SVG ICONS ===== */
-function svgReader(cls=""){
-  return `
-    <svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <rect x="7" y="2.8" width="10" height="18.4" rx="2.2"></rect>
-      <line x1="9" y1="6" x2="15" y2="6"></line>
-      <circle cx="12" cy="18" r="0.9" fill="none"></circle>
-    </svg>
-  `;
-}
-function svgHeart(cls=""){
-  return `
-    <svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M20.4 4.9c-1.6-1.7-4.2-1.7-5.8 0L12 7.5 9.4 4.9c-1.6-1.7-4.2-1.7-5.8 0-1.8 1.9-1.7 4.9.2 6.7L12 20l8.2-8.4c1.9-1.8 2-4.8.2-6.7z"></path>
-    </svg>
-  `;
-}
-function svgOpenBook(cls=""){
-  return `
-    <svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M12 19c-2.2-1.5-5.2-2.2-8-2V6c2.8-.2 5.8.6 8 2"></path>
-      <path d="M12 19c2.2-1.5 5.2-2.2 8-2V6c-2.8-.2-5.8.6-8 2"></path>
-      <line x1="12" y1="8" x2="12" y2="19"></line>
-    </svg>
-  `;
-}
-function svgClosedBook(cls=""){
-  return `
-    <svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M7 3h10a2 2 0 0 1 2 2v15a1.5 1.5 0 0 1-1.5 1.5H8.5A1.5 1.5 0 0 1 7 20V3z"></path>
-      <line x1="9" y1="7" x2="15" y2="7"></line>
-      <line x1="9" y1="11" x2="15" y2="11"></line>
-      <line x1="7" y1="20" x2="19" y2="20"></line>
-    </svg>
-  `;
-}
+function svgReader(cls=""){ return `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.8" width="10" height="18.4" rx="2.2"></rect><line x1="9" y1="6" x2="15" y2="6"></line><circle cx="12" cy="18" r="0.9"></circle></svg>`; }
+function svgHeart(cls=""){ return `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.4 4.9c-1.6-1.7-4.2-1.7-5.8 0L12 7.5 9.4 4.9c-1.6-1.7-4.2-1.7-5.8 0-1.8 1.9-1.7 4.9.2 6.7L12 20l8.2-8.4c1.9-1.8 2-4.8.2-6.7z"></path></svg>`; }
+function svgOpenBook(cls=""){ return `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19c-2.2-1.5-5.2-2.2-8-2V6c2.8-.2 5.8.6 8 2"></path><path d="M12 19c2.2-1.5 5.2-2.2 8-2V6c-2.8-.2-5.8.6-8 2"></path><line x1="12" y1="8" x2="12" y2="19"></line></svg>`; }
+function svgClosedBook(cls=""){ return `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10a2 2 0 0 1 2 2v15a1.5 1.5 0 0 1-1.5 1.5H8.5A1.5 1.5 0 0 1 7 20V3z"></path><line x1="9" y1="7" x2="15" y2="7"></line><line x1="9" y1="11" x2="15" y2="11"></line><line x1="7" y1="20" x2="19" y2="20"></line></svg>`; }
 
 /* ========= Routing ========= */
 function show(route){
   if(!currentUser && route !== "login") route = "login";
   currentRoute = route;
-
   document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
   document.getElementById("view-"+route).classList.add("active");
 
@@ -599,36 +552,21 @@ function renderLogin(){
       </div>
     </div>
   `;
-
   const uEl = root.querySelector("#lgUser");
   const pEl = root.querySelector("#lgPin");
   const msg = root.querySelector("#lgMsg");
-
-  pEl.addEventListener("input", ()=>{
-    pEl.value = pEl.value.replace(/[^0-9]/g, "").slice(0,4);
-  });
-
+  pEl.addEventListener("input", ()=>{ pEl.value = pEl.value.replace(/[^0-9]/g, "").slice(0,4); });
   root.querySelector("#lgBtn").onclick = ()=>{
     msg.textContent = "";
-    try{
-      setActiveUser(uEl.value, pEl.value);
-      show("home");
-    }catch(e){
-      msg.textContent = e.message || "Erreur";
-    }
+    try{ setActiveUser(uEl.value, pEl.value); show("home"); }
+    catch(e){ msg.textContent = e.message || "Erreur"; }
   };
 }
 
 /* ========= Backup ========= */
 function exportBackup(){
   if(!currentUser) return;
-  const payload = {
-    app: "BooksBySiana",
-    version: 2,
-    username: currentUser.username,
-    exportedAt: new Date().toISOString(),
-    data: state
-  };
+  const payload = { app:"BooksBySiana", version:3, username: currentUser.username, exportedAt:new Date().toISOString(), data: state };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type:"application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
@@ -651,11 +589,12 @@ async function importBackup(file){
 /* ========= Stats ========= */
 function getStats(){
   const books = state.books || [];
-  const ebooks = books.filter(b => b.format === "ebook" && !b.read && !b.acquired).length;
-  const wishlist = books.filter(b => b.format === "wishlist" && !b.read && !b.acquired).length;
-  const pal = books.filter(b => !b.read && b.acquired).length;
-  const read = books.filter(b => b.read).length;
-  return { ebooks, wishlist, pal, read };
+  return {
+    ebooks: books.filter(b => b.format === "ebook" && !b.read && !b.acquired).length,
+    wishlist: books.filter(b => b.format === "wishlist" && !b.read && !b.acquired).length,
+    pal: books.filter(b => !b.read && b.acquired).length,
+    read: books.filter(b => b.read).length
+  };
 }
 
 /* ========= HOME ========= */
@@ -668,42 +607,16 @@ function renderHome(){
     <div class="home">
       <div style="width:100%">
         <div class="home-grid">
-          <div class="home-btn" id="goEbooks">
-            <div class="badge">${s.ebooks}</div>
-            ${svgReader("")}
-            <b>Ebooks</b>
-          </div>
-
-          <div class="home-btn" id="goWishlist">
-            <div class="badge">${s.wishlist}</div>
-            ${svgHeart("")}
-            <b>Wishlist</b>
-          </div>
-
-          <div class="home-btn" id="goPAL">
-            <div class="badge">${s.pal}</div>
-            ${svgOpenBook("")}
-            <b>PAL</b>
-          </div>
-
-          <div class="home-btn" id="goRead">
-            <div class="badge">${s.read}</div>
-            ${svgClosedBook("")}
-            <b>Livres Lus</b>
-          </div>
-
-          <div class="home-btn" id="goAdd" style="grid-column: 1 / -1;">
-            <div class="badge">+</div>
-            <div style="font-size:34px; font-weight:1000; color: var(--pink); line-height:1">+</div>
-            <b>Ajouter un livre</b>
-          </div>
+          <div class="home-btn" id="goEbooks"><div class="badge">${s.ebooks}</div>${svgReader("")}<b>Ebooks</b></div>
+          <div class="home-btn" id="goWishlist"><div class="badge">${s.wishlist}</div>${svgHeart("")}<b>Wishlist</b></div>
+          <div class="home-btn" id="goPAL"><div class="badge">${s.pal}</div>${svgOpenBook("")}<b>PAL</b></div>
+          <div class="home-btn" id="goRead"><div class="badge">${s.read}</div>${svgClosedBook("")}<b>Livres Lus</b></div>
+          <div class="home-btn" id="goAdd" style="grid-column: 1 / -1;"><div class="badge">+</div><div style="font-size:34px;font-weight:1000;color:var(--pink);line-height:1">+</div><b>Ajouter un livre</b></div>
         </div>
 
         <div class="row" style="justify-content:center; margin-top:12px">
           <button class="btn small" id="btnExport">Exporter</button>
-          <label class="btn small" style="cursor:pointer">
-            Importer<input type="file" id="btnImport" accept="application/json" style="display:none">
-          </label>
+          <label class="btn small" style="cursor:pointer">Importer<input type="file" id="btnImport" accept="application/json" style="display:none"></label>
           <button class="btn small danger" id="btnLogout">Déconnexion</button>
         </div>
 
@@ -713,7 +626,6 @@ function renderHome(){
       </div>
     </div>
   `;
-
   root.querySelector("#goEbooks").onclick = ()=> show("ebooks");
   root.querySelector("#goWishlist").onclick = ()=> show("wishlist");
   root.querySelector("#goPAL").onclick = ()=> show("pal");
@@ -730,14 +642,13 @@ function renderHome(){
   };
 }
 
-/* ========= Lists ========= */
+/* ========= Lists / Cards ========= */
 function renderList(kind){
   const root = document.getElementById("view-"+kind);
   const isEbook = kind === "ebooks";
   const subtitle = isEbook ? "Ebooks" : "Wishlist";
   const format = isEbook ? "ebook" : "wishlist";
   const obtainLabel = isEbook ? "Téléchargé" : "Acheté";
-
   const books = (state.books || []).filter(b => b.format === format && !b.read && !b.acquired);
 
   root.innerHTML = `
@@ -747,12 +658,8 @@ function renderList(kind){
       <button class="btn" onclick="show('add')">＋ Ajouter</button>
       <button class="btn" onclick="show('pal')">${svgOpenBook("small")} PAL</button>
     </div>
-
     <div class="panel">
-      <h2>
-        <span>${subtitle}</span>
-        <span style="color:rgba(255,255,255,.78);font-size:12px;font-weight:900">${books.length} livre(s)</span>
-      </h2>
+      <h2><span>${subtitle}</span><span style="color:rgba(255,255,255,.78);font-size:12px;font-weight:900">${books.length} livre(s)</span></h2>
       <div class="content">
         <div class="row">
           <input class="input" id="q" placeholder="Rechercher (titre, auteur…)" />
@@ -767,7 +674,6 @@ function renderList(kind){
       <div id="cards" class="list"></div>
     </div>
   `;
-
   root.querySelector("#btnBack").onclick = backToHome;
 
   const q = root.querySelector("#q");
@@ -784,22 +690,12 @@ function renderList(kind){
     const query = (q.value||"").trim().toLowerCase();
     let filtered = books.slice();
     if(query){
-      filtered = filtered.filter(b => {
-        const hay = [b.title, (b.authors||[]).join(" "), b.series, b.volumeNumber, editionLabel(b.edition)].join(" ").toLowerCase();
-        return hay.includes(query);
-      });
+      filtered = filtered.filter(b => ([b.title, (b.authors||[]).join(" "), b.volumeNumber].join(" ").toLowerCase()).includes(query));
     }
     filtered.sort(sorter[sortSel.value] || sorter.created);
-
-    if(!filtered.length){
-      cards.innerHTML = `<div class="empty">Aucun livre ici.</div>`;
-      return;
-    }
-
-    cards.innerHTML = filtered.map(b => renderCardObtainable(b, obtainLabel)).join("");
+    cards.innerHTML = filtered.length ? filtered.map(b => renderCardObtainable(b, obtainLabel)).join("") : `<div class="empty">Aucun livre ici.</div>`;
     bindCards(cards);
   }
-
   q.addEventListener("input", apply);
   sortSel.addEventListener("change", apply);
   apply();
@@ -807,17 +703,14 @@ function renderList(kind){
 
 function renderCardObtainable(b, obtainLabel){
   const icon = (b.format === "ebook") ? "📱" : "❤";
-  const author = toAuthorsDisplay(b.authors);
-  const ed = editionLabel(b.edition);
   const coverSrc = b.coverData || b.coverUrl || "";
+  const author = toAuthorsDisplay(b.authors);
   return `
     <div class="card" data-open="${escapeHtml(b.id)}">
-      <div class="cover">
-        ${(coverSrc) ? `<img src="${escapeHtml(coverSrc)}" alt="Couverture">` : icon}
-      </div>
+      <div class="cover">${coverSrc ? `<img src="${escapeHtml(coverSrc)}" alt="Couverture">` : icon}</div>
       <div class="meta">
         <p class="t">${escapeHtml(b.title || "Sans titre")}</p>
-        <p class="a">${escapeHtml(author)}${ed ? " • " + escapeHtml(ed) : ""}</p>
+        <p class="a">${escapeHtml(author)}${b.volumeNumber ? " • Tome " + escapeHtml(b.volumeNumber) : ""}</p>
         <div class="actions">
           <span class="chip" data-action="obtain" data-id="${escapeHtml(b.id)}">✓ ${escapeHtml(obtainLabel)}</span>
           <a class="chip" href="${amazonSearchUrl(b)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Amazon</a>
@@ -828,7 +721,7 @@ function renderCardObtainable(b, obtainLabel){
   `;
 }
 
-/* ========= PAL ========= */
+/* ========= PAL / READ (unchanged logic) ========= */
 function renderPAL(){
   const root = document.getElementById("view-pal");
   const books = (state.books || []).filter(b => b.acquired && !b.read);
@@ -841,32 +734,19 @@ function renderPAL(){
       <button class="btn" onclick="show('wishlist')">${svgHeart("small")} Wishlist</button>
       <button class="btn" onclick="show('read')">${svgClosedBook("small")} Livres Lus</button>
     </div>
-
     <div class="panel">
-      <h2>
-        <span>PAL</span>
-        <span style="color:rgba(255,255,255,.78);font-size:12px;font-weight:900">${books.length} livre(s)</span>
-      </h2>
+      <h2><span>PAL</span><span style="color:rgba(255,255,255,.78);font-size:12px;font-weight:900">${books.length} livre(s)</span></h2>
       <div class="content">
-        <div class="row">
-          <input class="input" id="q" placeholder="Rechercher (titre, auteur…)" />
-          <select id="sort">
-            <option value="created">Tri : récent</option>
-            <option value="author">Tri : auteur</option>
-            <option value="title">Tri : titre</option>
-          </select>
-        </div>
+        <div class="row"><input class="input" id="q" placeholder="Rechercher (titre, auteur…)" /><select id="sort"><option value="created">Tri : récent</option><option value="author">Tri : auteur</option><option value="title">Tri : titre</option></select></div>
       </div>
       <div id="cards" class="list"></div>
     </div>
   `;
-
   root.querySelector("#btnBack").onclick = backToHome;
 
   const q = root.querySelector("#q");
   const sortSel = root.querySelector("#sort");
   const cards = root.querySelector("#cards");
-
   const sorter = {
     created:(a,b)=>(b.createdAt||0)-(a.createdAt||0),
     author:(a,b)=> ( (a.authors?.[0]||"").localeCompare(b.authors?.[0]||"", "fr") || (a.title||"").localeCompare(b.title||"", "fr") ),
@@ -877,22 +757,12 @@ function renderPAL(){
     const query = (q.value||"").trim().toLowerCase();
     let filtered = books.slice();
     if(query){
-      filtered = filtered.filter(b => {
-        const hay = [b.title, (b.authors||[]).join(" "), b.series, b.volumeNumber, editionLabel(b.edition)].join(" ").toLowerCase();
-        return hay.includes(query);
-      });
+      filtered = filtered.filter(b => ([b.title, (b.authors||[]).join(" "), b.volumeNumber].join(" ").toLowerCase()).includes(query));
     }
     filtered.sort(sorter[sortSel.value] || sorter.created);
-
-    if(!filtered.length){
-      cards.innerHTML = `<div class="empty">PAL vide.</div>`;
-      return;
-    }
-
-    cards.innerHTML = filtered.map(b => renderCardPAL(b)).join("");
+    cards.innerHTML = filtered.length ? filtered.map(b => renderCardPAL(b)).join("") : `<div class="empty">PAL vide.</div>`;
     bindCards(cards);
   }
-
   q.addEventListener("input", apply);
   sortSel.addEventListener("change", apply);
   apply();
@@ -900,17 +770,14 @@ function renderPAL(){
 
 function renderCardPAL(b){
   const icon = (b.format === "ebook") ? "📱" : "❤";
-  const author = toAuthorsDisplay(b.authors);
-  const ed = editionLabel(b.edition);
   const coverSrc = b.coverData || b.coverUrl || "";
+  const author = toAuthorsDisplay(b.authors);
   return `
     <div class="card" data-open="${escapeHtml(b.id)}">
-      <div class="cover">
-        ${(coverSrc) ? `<img src="${escapeHtml(coverSrc)}" alt="Couverture">` : icon}
-      </div>
+      <div class="cover">${coverSrc ? `<img src="${escapeHtml(coverSrc)}" alt="Couverture">` : icon}</div>
       <div class="meta">
         <p class="t">${escapeHtml(b.title || "Sans titre")}</p>
-        <p class="a">${escapeHtml(author)}${ed ? " • " + escapeHtml(ed) : ""}</p>
+        <p class="a">${escapeHtml(author)}${b.volumeNumber ? " • Tome " + escapeHtml(b.volumeNumber) : ""}</p>
         <div class="actions">
           <span class="chip" data-action="read" data-id="${escapeHtml(b.id)}">✓ Lu</span>
           <a class="chip" href="${amazonSearchUrl(b)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Amazon</a>
@@ -921,7 +788,6 @@ function renderCardPAL(b){
   `;
 }
 
-/* ========= READ ========= */
 function renderRead(){
   const root = document.getElementById("view-read");
   const books = (state.books || []).filter(b => b.read);
@@ -933,32 +799,19 @@ function renderRead(){
       <button class="btn" onclick="show('pal')">${svgOpenBook("small")} PAL</button>
       <button class="btn danger" id="clear">Vider</button>
     </div>
-
     <div class="panel">
-      <h2>
-        <span>Livres Lus</span>
-        <span style="color:rgba(255,255,255,.78);font-size:12px;font-weight:900">${books.length} livre(s)</span>
-      </h2>
+      <h2><span>Livres Lus</span><span style="color:rgba(255,255,255,.78);font-size:12px;font-weight:900">${books.length} livre(s)</span></h2>
       <div class="content">
-        <div class="row">
-          <input class="input" id="q" placeholder="Rechercher (titre, auteur…)" />
-          <select id="sort">
-            <option value="readAt">Tri : lu récemment</option>
-            <option value="author">Tri : auteur</option>
-            <option value="title">Tri : titre</option>
-          </select>
-        </div>
+        <div class="row"><input class="input" id="q" placeholder="Rechercher (titre, auteur…)" /><select id="sort"><option value="readAt">Tri : lu récemment</option><option value="author">Tri : auteur</option><option value="title">Tri : titre</option></select></div>
       </div>
       <div id="cards" class="list"></div>
     </div>
   `;
-
   root.querySelector("#btnBack").onclick = backToHome;
 
   const q = root.querySelector("#q");
   const sortSel = root.querySelector("#sort");
   const cards = root.querySelector("#cards");
-
   const sorter = {
     readAt:(a,b)=>(b.readAt||0)-(a.readAt||0),
     author:(a,b)=> ( (a.authors?.[0]||"").localeCompare(b.authors?.[0]||"", "fr") || (a.title||"").localeCompare(b.title||"", "fr") ),
@@ -969,22 +822,12 @@ function renderRead(){
     const query = (q.value||"").trim().toLowerCase();
     let filtered = books.slice();
     if(query){
-      filtered = filtered.filter(b => {
-        const hay = [b.title, (b.authors||[]).join(" "), b.series, b.volumeNumber, editionLabel(b.edition)].join(" ").toLowerCase();
-        return hay.includes(query);
-      });
+      filtered = filtered.filter(b => ([b.title, (b.authors||[]).join(" "), b.volumeNumber].join(" ").toLowerCase()).includes(query));
     }
     filtered.sort(sorter[sortSel.value] || sorter.readAt);
-
-    if(!filtered.length){
-      cards.innerHTML = `<div class="empty">Aucun livre lu pour l’instant.</div>`;
-      return;
-    }
-
-    cards.innerHTML = filtered.map(b => renderCardRead(b)).join("");
+    cards.innerHTML = filtered.length ? filtered.map(b => renderCardRead(b)).join("") : `<div class="empty">Aucun livre lu pour l’instant.</div>`;
     bindCards(cards);
   }
-
   q.addEventListener("input", apply);
   sortSel.addEventListener("change", apply);
 
@@ -1000,18 +843,15 @@ function renderRead(){
 
 function renderCardRead(b){
   const icon = (b.format === "ebook") ? "📱" : "❤";
+  const coverSrc = b.coverData || b.coverUrl || "";
   const author = toAuthorsDisplay(b.authors);
   const fmt = formatFormatLabel(b);
-  const ed = editionLabel(b.edition);
-  const coverSrc = b.coverData || b.coverUrl || "";
   return `
     <div class="card" data-open="${escapeHtml(b.id)}">
-      <div class="cover">
-        ${(coverSrc) ? `<img src="${escapeHtml(coverSrc)}" alt="Couverture">` : icon}
-      </div>
+      <div class="cover">${coverSrc ? `<img src="${escapeHtml(coverSrc)}" alt="Couverture">` : icon}</div>
       <div class="meta">
         <p class="t">${escapeHtml(b.title || "Sans titre")}</p>
-        <p class="a">${escapeHtml(author)}${ed ? " • " + escapeHtml(ed) : ""}</p>
+        <p class="a">${escapeHtml(author)}${b.volumeNumber ? " • Tome " + escapeHtml(b.volumeNumber) : ""}</p>
         <div class="actions">
           <span class="chip">${escapeHtml(fmt)}</span>
           <a class="chip" href="${amazonSearchUrl(b)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Amazon</a>
@@ -1022,7 +862,7 @@ function renderCardRead(b){
   `;
 }
 
-/* ========= ADD ========= */
+/* ========= ADD (manual simplified) ========= */
 function renderAdd(){
   const root = document.getElementById("view-add");
 
@@ -1051,7 +891,6 @@ function renderAdd(){
             <option value="broche">Édition : Broché</option>
           </select>
         </div>
-        <div class="hint">Astuce : tape un ISBN pour une couverture parfaitement fiable (poche/broché).</div>
       </div>
       <div class="content">
         <div id="searchStatus" class="hint"></div>
@@ -1060,34 +899,24 @@ function renderAdd(){
     </div>
 
     <div class="panel">
-      <h2><span>Ajout manuel</span></h2>
+      <h2><span>Ajout manuel (simplifié)</span></h2>
       <div class="content">
         <div class="row">
           <input class="input" id="mTitle" placeholder="Titre" />
           <input class="input" id="mAuthor" placeholder="Auteur" />
         </div>
         <div class="row">
-          <input class="input" id="mSeries" placeholder="Série (optionnel)" />
           <input class="input" id="mVolume" placeholder="Tome n° (optionnel)" />
           <select id="mFormat">
             <option value="ebook">Ebook</option>
             <option value="wishlist">Wishlist</option>
           </select>
-          <select id="mEdition">
-            <option value="auto">Édition : Auto</option>
-            <option value="poche">Édition : Poche</option>
-            <option value="broche">Édition : Broché</option>
-          </select>
-        </div>
-        <div class="row">
-          <input class="input" id="mCover" placeholder="URL couverture (optionnel)" />
-          <input class="input" id="mIsbn" placeholder="ISBN (optionnel)" />
         </div>
         <div class="row">
           <input class="input" id="mCoverFile" type="file" accept="image/*" />
         </div>
-        <div class="hint" id="mCoverHint">Si tu choisis une image, elle remplace l’URL de couverture. (compressée automatiquement)</div>
-        <textarea class="input" id="mSummary" placeholder="Résumé (optionnel)"></textarea>
+        <div class="hint">La photo est compressée automatiquement pour ne pas saturer la mémoire.</div>
+
         <div class="row" style="margin-top:10px">
           <button class="btn" id="addManual">Ajouter</button>
           <button class="btn" id="resetManual">Réinitialiser</button>
@@ -1098,6 +927,7 @@ function renderAdd(){
 
   root.querySelector("#btnBack").onclick = backToHome;
 
+  // Search part (unchanged)
   const q = root.querySelector("#searchQuery");
   const btn = root.querySelector("#searchBtn");
   const status = root.querySelector("#searchStatus");
@@ -1176,7 +1006,6 @@ function renderAdd(){
       </div>
     `;
   }
-
   function bindSearchButtons(container, formatPickEl, editionPickEl){
     container.querySelectorAll('[data-action="add"]').forEach(el=>{
       el.addEventListener("click", (e)=>{
@@ -1191,33 +1020,30 @@ function renderAdd(){
     });
   }
 
+  // Manual add simplified
   root.querySelector("#addManual").addEventListener("click", async ()=>{
     const title = root.querySelector("#mTitle").value.trim();
     const author = root.querySelector("#mAuthor").value.trim();
-    const series = root.querySelector("#mSeries").value.trim();
     const volumeNumber = root.querySelector("#mVolume").value.trim();
-    const coverUrl = root.querySelector("#mCover").value.trim();
-    const isbn = root.querySelector("#mIsbn").value.trim();
-    const summary = root.querySelector("#mSummary").value.trim();
     const format = root.querySelector("#mFormat").value;
-    const edition = root.querySelector("#mEdition").value;
     const coverFile = root.querySelector("#mCoverFile").files?.[0] || null;
 
     if(!title){ alert("Titre obligatoire."); return; }
+    if(!author){ alert("Auteur obligatoire."); return; }
+    if(!coverFile){ alert("Ajoute une couverture depuis ta galerie."); return; }
 
     let coverData = "";
-    if(coverFile){
-      try{
-        coverData = await fileToResizedDataURL(coverFile, 400, 0.82);
-      }catch{
-        coverData = "";
-      }
+    try{
+      coverData = await fileToResizedDataURL(coverFile, 400, 0.82);
+    }catch{
+      alert("Impossible de charger l’image.");
+      return;
     }
 
     addBook(
-      { title, authors: author ? [author] : [], series, volumeNumber, coverUrl, isbn, summary, coverData },
+      { title, authors: [author], series:"", volumeNumber, coverUrl:"", isbn:"", summary:"", coverData },
       format,
-      edition
+      "auto"
     );
 
     saveState();
@@ -1226,11 +1052,8 @@ function renderAdd(){
   });
 
   root.querySelector("#resetManual").addEventListener("click", ()=>{
-    ["mTitle","mAuthor","mSeries","mVolume","mCover","mIsbn","mSummary"].forEach(id=>{
-      root.querySelector("#"+id).value = "";
-    });
+    ["mTitle","mAuthor","mVolume"].forEach(id => root.querySelector("#"+id).value = "");
     root.querySelector("#mFormat").value = "ebook";
-    root.querySelector("#mEdition").value = "auto";
     root.querySelector("#mCoverFile").value = "";
   });
 }
@@ -1290,7 +1113,7 @@ function addBook(meta, format, edition="auto"){
     edition: edition || "auto",
     summary: meta.summary || "",
     coverUrl: meta.coverUrl || "",
-    coverData: meta.coverData || "", // ✅ from gallery
+    coverData: meta.coverData || "",
     isbn: meta.isbn || "",
     acquired: false,
     read: false,
@@ -1299,9 +1122,9 @@ function addBook(meta, format, edition="auto"){
   };
 
   state.books = state.books || [];
-  const key = (book.title + "|" + (book.authors?.[0]||"") + "|" + book.format + "|" + (book.edition||"") + "|" + (book.series||"") + "|" + (book.volumeNumber||"")).toLowerCase();
+  const key = (book.title + "|" + (book.authors?.[0]||"") + "|" + book.format + "|" + (book.volumeNumber||"")).toLowerCase();
   const exists = state.books.some(b=>{
-    const k = (b.title + "|" + (b.authors?.[0]||"") + "|" + b.format + "|" + (b.edition||"") + "|" + (b.series||"") + "|" + (b.volumeNumber||"")).toLowerCase();
+    const k = (b.title + "|" + (b.authors?.[0]||"") + "|" + b.format + "|" + (b.volumeNumber||"")).toLowerCase();
     return k === key;
   });
   if(exists) return;
@@ -1314,33 +1137,26 @@ function openModal(id){
   const book = (state.books || []).find(b => b.id === id);
   if(!book) return;
 
-  const backdrop = document.getElementById("modalBackdrop");
-  const cover = document.getElementById("modalCover");
-  const desc = document.getElementById("modalDesc");
-  const badges = document.getElementById("modalBadges");
-
   document.getElementById("modalTitle").textContent = book.title || "Sans titre";
   document.getElementById("modalAuthor").textContent = toAuthorsDisplay(book.authors);
 
+  const cover = document.getElementById("modalCover");
   const coverSrc = book.coverData || book.coverUrl || "";
   cover.innerHTML = coverSrc
     ? `<img src="${escapeHtml(coverSrc)}" alt="Couverture">`
     : `<div style="display:grid;place-items:center;height:100%;color:rgba(255,255,255,.35);font-weight:900;font-size:40px">${formatIconFallback(book)}</div>`;
 
-  desc.textContent = (book.summary || "Aucune description trouvée.").trim();
+  document.getElementById("modalDesc").textContent = (book.summary || "Aucune description trouvée.").trim();
 
-  badges.innerHTML = `
+  document.getElementById("modalBadges").innerHTML = `
     <span class="chip">${escapeHtml(formatFormatLabel(book))}</span>
-    ${book.edition && book.edition !== "auto" ? `<span class="chip">${escapeHtml(editionLabel(book.edition))}</span>` : ""}
-    ${book.series ? `<span class="chip">${escapeHtml(book.series)}${book.volumeNumber ? " — Tome " + escapeHtml(book.volumeNumber) : ""}</span>` : ""}
-    ${book.isbn ? `<span class="chip">ISBN: ${escapeHtml(book.isbn)}</span>` : ""}
+    ${book.volumeNumber ? `<span class="chip">Tome ${escapeHtml(book.volumeNumber)}</span>` : ""}
     ${book.acquired ? `<span class="chip">PAL</span>` : `<span class="chip">À obtenir</span>`}
     ${book.read ? `<span class="chip">Lu</span>` : ``}
   `;
 
   document.getElementById("modalAmazon").href = amazonSearchUrl(book);
 
-  // Change cover (gallery)
   const fileInput = document.getElementById("modalCoverFile");
   fileInput.value = "";
   fileInput.onchange = async (e)=>{
@@ -1350,18 +1166,14 @@ function openModal(id){
       const data = await fileToResizedDataURL(file, 400, 0.82);
       book.coverData = data;
       saveState();
-      openModal(id); // refresh modal
+      openModal(id);
     }catch{
       alert("Impossible de charger l’image.");
     }
   };
 
-  // Remove manual cover
   document.getElementById("modalRemoveCover").onclick = ()=>{
-    if(!book.coverData){
-      alert("Aucune couverture locale à retirer.");
-      return;
-    }
+    if(!book.coverData){ alert("Aucune couverture locale à retirer."); return; }
     if(!confirm("Retirer la couverture ajoutée depuis la galerie ?")) return;
     book.coverData = "";
     saveState();
@@ -1376,7 +1188,7 @@ function openModal(id){
     show(currentRoute);
   };
 
-  backdrop.style.display = "flex";
+  document.getElementById("modalBackdrop").style.display = "flex";
 }
 function closeModal(){ document.getElementById("modalBackdrop").style.display = "none"; }
 document.getElementById("modalClose").addEventListener("click", closeModal);
@@ -1384,7 +1196,7 @@ document.getElementById("modalBackdrop").addEventListener("click", (e)=>{
   if(e.target.id === "modalBackdrop") closeModal();
 });
 
-/* ========= Search helpers ========= */
+/* ========= Search helpers / APIs (kept) ========= */
 function normalizeQueryForBooks(raw){
   const cleaned = String(raw).trim();
   const isbn = extractISBN(cleaned);
@@ -1392,16 +1204,13 @@ function normalizeQueryForBooks(raw){
   return cleaned;
 }
 function extractISBN(text){
-  const t = String(text).toUpperCase();
-  const compact = t.replace(/[^0-9X]/g, "");
+  const compact = String(text).toUpperCase().replace(/[^0-9X]/g, "");
   if(compact.length === 10 || compact.length === 13){
     if(compact.length === 13 && compact.includes("X")) return null;
     return compact;
   }
   return null;
 }
-
-/* ========= APIs ========= */
 async function searchGoogleBooks(query, opts = { lang: "fr" }){
   const url = new URL("https://www.googleapis.com/books/v1/volumes");
   url.searchParams.set("q", query);
@@ -1409,13 +1218,11 @@ async function searchGoogleBooks(query, opts = { lang: "fr" }){
   url.searchParams.set("printType", "books");
   url.searchParams.set("orderBy", "relevance");
   if(opts?.lang) url.searchParams.set("langRestrict", opts.lang);
-
   const res = await fetch(url.toString());
   if(!res.ok) throw new Error("Google Books HTTP " + res.status);
   const data = await res.json();
   const items = data.items || [];
   const out = [];
-
   window.__SEARCH_CACHE = window.__SEARCH_CACHE || new Map();
   for(const it of items){
     const v = it.volumeInfo || {};
@@ -1423,7 +1230,7 @@ async function searchGoogleBooks(query, opts = { lang: "fr" }){
       _previewId: uid(),
       title: v.title || "",
       authors: v.authors || [],
-      summary: stripHtml(v.description || ""),
+      summary: (v.description || "").replace(/<[^>]*>/g, "").trim(),
       isbn: pickIsbn(v.industryIdentifiers || []),
       coverUrl: normalizeCover(pickGoogleCover(v.imageLinks)),
       series: "",
@@ -1451,19 +1258,15 @@ function pickIsbn(ids){
   }
   return byType.ISBN_13 || byType.ISBN_10 || "";
 }
-function stripHtml(html){ return String(html||"").replace(/<[^>]*>/g, "").trim(); }
-
 async function searchOpenLibrary(query){
   const url = new URL("https://openlibrary.org/search.json");
   url.searchParams.set("q", query);
   url.searchParams.set("limit", "20");
-
   const res = await fetch(url.toString());
   if(!res.ok) throw new Error("OpenLibrary HTTP " + res.status);
   const data = await res.json();
   const docs = data.docs || [];
   const out = [];
-
   window.__SEARCH_CACHE = window.__SEARCH_CACHE || new Map();
   for(const d of docs){
     const meta = {
@@ -1485,7 +1288,7 @@ async function searchOpenLibrary(query){
 /* ========= PWA SW ========= */
 if("serviceWorker" in navigator){
   window.addEventListener("load", ()=>{
-    navigator.serviceWorker.register("./sw.js?v=10").catch(()=>{});
+    navigator.serviceWorker.register("./sw.js?v=11").catch(()=>{});
   });
 }
 
