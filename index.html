@@ -229,6 +229,11 @@
       border-color: rgba(239,68,68,.55);
       color:#fff;
     }
+    .chip.disabled{
+      opacity:.55;
+      cursor:default;
+      pointer-events:none;
+    }
     .empty{padding: 22px 16px; color: var(--muted); text-align:center; font-size:13px}
 
     .modal-backdrop{
@@ -293,8 +298,11 @@
   <div class="wrap">
     <div id="view-login" class="view active"></div>
     <div id="view-home" class="view"></div>
+
     <div id="view-ebooks" class="view"></div>
     <div id="view-wishlist" class="view"></div>
+    <div id="view-wattpad" class="view"></div>
+
     <div id="view-pal" class="view"></div>
     <div id="view-read" class="view"></div>
     <div id="view-add" class="view"></div>
@@ -359,8 +367,18 @@ function toAuthorsDisplay(authors){
   if(!authors || !authors.length) return "Auteur inconnu";
   return authors.join(", ");
 }
-function formatFormatLabel(book){ return book.format === "ebook" ? "Ebook" : "Wishlist"; }
-function formatIconFallback(book){ return book.format === "ebook" ? "📱" : "❤"; }
+function formatFormatLabel(book){
+  if(book.format === "ebook") return "Ebook";
+  if(book.format === "wishlist") return "Wishlist";
+  if(book.format === "wattpad") return "Wattpad";
+  return "—";
+}
+function formatIconFallback(book){
+  if(book.format === "ebook") return "📱";
+  if(book.format === "wishlist") return "❤";
+  if(book.format === "wattpad") return "✍️";
+  return "📘";
+}
 function amazonSearchUrl(book){
   const title = book?.title || "";
   const author = (book?.authors && book.authors.length) ? book.authors[0] : "";
@@ -377,6 +395,7 @@ function brandCenter(subtitle){
     </div>
   `;
 }
+
 function show(route){
   currentRoute = route;
   document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
@@ -384,12 +403,17 @@ function show(route){
 
   if(route === "login") renderLogin();
   if(route === "home") renderHome();
+
   if(route === "ebooks") renderList("ebooks");
   if(route === "wishlist") renderList("wishlist");
+  if(route === "wattpad") renderList("wattpad");
+
   if(route === "pal") renderPAL();
   if(route === "read") renderRead();
   if(route === "add") renderAdd();
 }
+window.show = show;
+
 function backToHome(){ show("home"); }
 
 /* ===== SVG ICONS ===== */
@@ -397,27 +421,7 @@ function svgReader(cls=""){ return `<svg class="ico ${cls}" viewBox="0 0 24 24" 
 function svgHeart(cls=""){ return `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.4 4.9c-1.6-1.7-4.2-1.7-5.8 0L12 7.5 9.4 4.9c-1.6-1.7-4.2-1.7-5.8 0-1.8 1.9-1.7 4.9.2 6.7L12 20l8.2-8.4c1.9-1.8 2-4.8.2-6.7z"></path></svg>`; }
 function svgOpenBook(cls=""){ return `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19c-2.2-1.5-5.2-2.2-8-2V6c2.8-.2 5.8.6 8 2"></path><path d="M12 19c2.2-1.5 5.2-2.2 8-2V6c-2.8-.2-5.8.6-8 2"></path><line x1="12" y1="8" x2="12" y2="19"></line></svg>`; }
 function svgClosedBook(cls=""){ return `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h10a2 2 0 0 1 2 2v15a1.5 1.5 0 0 1-1.5 1.5H8.5A1.5 1.5 0 0 1 7 20V3z"></path><line x1="9" y1="7" x2="15" y2="7"></line><line x1="9" y1="11" x2="15" y2="11"></line><line x1="7" y1="20" x2="19" y2="20"></line></svg>`; }
-
-/* ===== Local resize (fallback / preview) ===== */
-async function fileToResizedDataURL(file, maxW = 400, quality = 0.82){
-  const img = await loadImageFromFile(file);
-  const ratio = img.width / img.height;
-  const w = Math.min(maxW, img.width);
-  const h = Math.round(w / ratio);
-  const canvas = document.createElement("canvas");
-  canvas.width = w; canvas.height = h;
-  canvas.getContext("2d").drawImage(img, 0, 0, w, h);
-  return canvas.toDataURL("image/jpeg", quality);
-}
-function loadImageFromFile(file){
-  return new Promise((resolve, reject)=>{
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = ()=>{ URL.revokeObjectURL(url); resolve(img); };
-    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error("Image invalide")); };
-    img.src = url;
-  });
-}
+function svgPen(cls=""){ return `<svg class="ico ${cls}" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4 11.5-11.5z"></path></svg>`; }
 
 /* ===== Data helpers ===== */
 function getStats(){
@@ -425,10 +429,12 @@ function getStats(){
   return {
     ebooks: books.filter(b => b.format === "ebook" && !b.read && !b.acquired).length,
     wishlist: books.filter(b => b.format === "wishlist" && !b.read && !b.acquired).length,
+    wattpad: books.filter(b => b.format === "wattpad" && !b.read && !b.acquired).length,
     pal: books.filter(b => !b.read && b.acquired).length,
     read: books.filter(b => b.read).length
   };
 }
+
 function loadLocalCache(){
   try{
     const raw = localStorage.getItem(LOCAL_FALLBACK_KEY);
@@ -477,7 +483,6 @@ function renderLogin(){
 
     try{
       await window.BBS_CLOUD.signInOrCreate(username, pin);
-      // onAuthStateChanged va ensuite afficher home
     }catch(e){
       msg.textContent = (e && e.message) ? e.message : "Erreur de connexion";
     }
@@ -495,6 +500,7 @@ function renderHome(){
         <div class="home-grid">
           <div class="home-btn" id="goEbooks"><div class="badge">${s.ebooks}</div>${svgReader("")}<b>Ebooks</b></div>
           <div class="home-btn" id="goWishlist"><div class="badge">${s.wishlist}</div>${svgHeart("")}<b>Wishlist</b></div>
+          <div class="home-btn" id="goWattpad"><div class="badge">${s.wattpad}</div>${svgPen("")}<b>Wattpad</b></div>
           <div class="home-btn" id="goPAL"><div class="badge">${s.pal}</div>${svgOpenBook("")}<b>PAL</b></div>
           <div class="home-btn" id="goRead"><div class="badge">${s.read}</div>${svgClosedBook("")}<b>Livres Lus</b></div>
           <div class="home-btn" id="goAdd" style="grid-column: 1 / -1;"><div class="badge">+</div><div style="font-size:34px;font-weight:1000;color:var(--pink);line-height:1">+</div><b>Ajouter un livre</b></div>
@@ -510,6 +516,7 @@ function renderHome(){
 
   root.querySelector("#goEbooks").onclick = ()=> show("ebooks");
   root.querySelector("#goWishlist").onclick = ()=> show("wishlist");
+  root.querySelector("#goWattpad").onclick = ()=> show("wattpad");
   root.querySelector("#goPAL").onclick = ()=> show("pal");
   root.querySelector("#goRead").onclick = ()=> show("read");
   root.querySelector("#goAdd").onclick = ()=> show("add");
@@ -526,10 +533,18 @@ window.rerenderCurrent = rerenderCurrent;
 
 function renderList(kind){
   const root = document.getElementById("view-"+kind);
-  const isEbook = kind === "ebooks";
-  const subtitle = isEbook ? "Ebooks" : "Wishlist";
-  const format = isEbook ? "ebook" : "wishlist";
-  const obtainLabel = isEbook ? "Téléchargé" : "Acheté";
+
+  const map = {
+    ebooks:   { subtitle:"Ebooks",   format:"ebook",   obtain:"Téléchargé" },
+    wishlist: { subtitle:"Wishlist", format:"wishlist", obtain:"Acheté" },
+    wattpad:  { subtitle:"Wattpad",  format:"wattpad",  obtain:"Ajouté" }
+  };
+  const conf = map[kind];
+
+  const subtitle = conf.subtitle;
+  const format = conf.format;
+  const obtainLabel = conf.obtain;
+
   const books = (booksCache || []).filter(b => b.format === format && !b.read && !b.acquired);
 
   root.innerHTML = `
@@ -550,7 +565,7 @@ function renderList(kind){
             <option value="title">Tri : titre</option>
           </select>
         </div>
-        <div class="hint">Quand tu coches <b>${obtainLabel}</b>, le livre passe automatiquement dans <b>PAL</b>.</div>
+        <div class="hint">Quand tu coches <b>${escapeHtml(obtainLabel)}</b>, le livre passe automatiquement dans <b>PAL</b>.</div>
       </div>
       <div id="cards" class="list"></div>
     </div>
@@ -568,7 +583,7 @@ function renderList(kind){
   };
 
   function renderCard(b){
-    const icon = (b.format === "ebook") ? "📱" : "❤";
+    const icon = formatIconFallback(b);
     const coverSrc = b.coverUrl || "";
     const author = toAuthorsDisplay(b.authors);
     return `
@@ -595,7 +610,7 @@ function renderList(kind){
     }
     filtered.sort(sorter[sortSel.value] || sorter.created);
     cards.innerHTML = filtered.length ? filtered.map(renderCard).join("") : `<div class="empty">Aucun livre ici.</div>`;
-    bindCards(cards);
+    bindCards(cards, obtainLabel);
   }
   q.addEventListener("input", apply);
   sortSel.addEventListener("change", apply);
@@ -612,12 +627,20 @@ function renderPAL(){
       <button class="btn" id="btnBack">← Retour</button>
       <button class="btn" onclick="show('ebooks')">${svgReader("small")} Ebooks</button>
       <button class="btn" onclick="show('wishlist')">${svgHeart("small")} Wishlist</button>
+      <button class="btn" onclick="show('wattpad')">${svgPen("small")} Wattpad</button>
       <button class="btn" onclick="show('read')">${svgClosedBook("small")} Livres Lus</button>
     </div>
     <div class="panel">
       <h2><span>PAL</span><span style="color:rgba(255,255,255,.78);font-size:12px;font-weight:900">${books.length} livre(s)</span></h2>
       <div class="content">
-        <div class="row"><input class="input" id="q" placeholder="Rechercher (titre, auteur…)" /><select id="sort"><option value="created">Tri : récent</option><option value="author">Tri : auteur</option><option value="title">Tri : titre</option></select></div>
+        <div class="row">
+          <input class="input" id="q" placeholder="Rechercher (titre, auteur…)" />
+          <select id="sort">
+            <option value="created">Tri : récent</option>
+            <option value="author">Tri : auteur</option>
+            <option value="title">Tri : titre</option>
+          </select>
+        </div>
       </div>
       <div id="cards" class="list"></div>
     </div>
@@ -636,7 +659,7 @@ function renderPAL(){
   };
 
   function renderCard(b){
-    const icon = (b.format === "ebook") ? "📱" : "❤";
+    const icon = formatIconFallback(b);
     const coverSrc = b.coverUrl || "";
     const author = toAuthorsDisplay(b.authors);
     return `
@@ -684,7 +707,14 @@ function renderRead(){
     <div class="panel">
       <h2><span>Livres Lus</span><span style="color:rgba(255,255,255,.78);font-size:12px;font-weight:900">${books.length} livre(s)</span></h2>
       <div class="content">
-        <div class="row"><input class="input" id="q" placeholder="Rechercher (titre, auteur…)" /><select id="sort"><option value="readAt">Tri : lu récemment</option><option value="author">Tri : auteur</option><option value="title">Tri : titre</option></select></div>
+        <div class="row">
+          <input class="input" id="q" placeholder="Rechercher (titre, auteur…)" />
+          <select id="sort">
+            <option value="readAt">Tri : lu récemment</option>
+            <option value="author">Tri : auteur</option>
+            <option value="title">Tri : titre</option>
+          </select>
+        </div>
       </div>
       <div id="cards" class="list"></div>
     </div>
@@ -703,7 +733,7 @@ function renderRead(){
   };
 
   function renderCard(b){
-    const icon = (b.format === "ebook") ? "📱" : "❤";
+    const icon = formatIconFallback(b);
     const coverSrc = b.coverUrl || "";
     const author = toAuthorsDisplay(b.authors);
     const fmt = formatFormatLabel(b);
@@ -758,6 +788,7 @@ function renderAdd(){
       <button class="btn" id="btnBack">← Retour</button>
       <button class="btn" onclick="show('ebooks')">${svgReader("small")} Ebooks</button>
       <button class="btn" onclick="show('wishlist')">${svgHeart("small")} Wishlist</button>
+      <button class="btn" onclick="show('wattpad')">${svgPen("small")} Wattpad</button>
       <button class="btn" onclick="show('pal')">${svgOpenBook("small")} PAL</button>
     </div>
 
@@ -770,9 +801,10 @@ function renderAdd(){
           <select id="formatPick">
             <option value="ebook">Ebook</option>
             <option value="wishlist">Wishlist</option>
+            <option value="wattpad">Wattpad</option>
           </select>
         </div>
-        <div class="hint">Tu peux remplacer la couverture via la galerie dans la fiche du livre (clic sur la carte).</div>
+        <div class="hint">Tu peux ajouter plusieurs livres sans que la page se réinitialise.</div>
       </div>
       <div class="content">
         <div id="searchStatus" class="hint"></div>
@@ -792,12 +824,13 @@ function renderAdd(){
           <select id="mFormat">
             <option value="ebook">Ebook</option>
             <option value="wishlist">Wishlist</option>
+            <option value="wattpad">Wattpad</option>
           </select>
         </div>
         <div class="row">
           <input class="input" id="mCoverFile" type="file" accept="image/*" />
         </div>
-        <div class="hint">La couverture est uploadée dans Firebase Storage (cloud).</div>
+        <div class="hint">La couverture est compressée automatiquement puis uploadée dans Firebase Storage.</div>
         <div class="row" style="margin-top:10px">
           <button class="btn" id="addManual">Ajouter</button>
           <button class="btn" id="resetManual">Réinitialiser</button>
@@ -819,6 +852,7 @@ function renderAdd(){
   q.addEventListener("keydown", (e)=>{ if(e.key==="Enter") doSearch(); });
 
   window.__SEARCH_CACHE = window.__SEARCH_CACHE || new Map();
+  window.__ADDED_PREVIEW_IDS = window.__ADDED_PREVIEW_IDS || new Set();
 
   async function doSearch(){
     const raw = (q.value||"").trim();
@@ -835,7 +869,7 @@ function renderAdd(){
       if(google.length){
         status.textContent = `Résultats (Google Books) : ${google.length}`;
         results.innerHTML = google.map(renderSearchCard).join("");
-        bindSearchButtons(results, formatPick);
+        bindSearchButtons(results, formatPick, status);
         return;
       }
     }catch{}
@@ -845,7 +879,7 @@ function renderAdd(){
       if(ol.length){
         status.textContent = `Résultats (Open Library) : ${ol.length}`;
         results.innerHTML = ol.map(renderSearchCard).join("");
-        bindSearchButtons(results, formatPick);
+        bindSearchButtons(results, formatPick, status);
         return;
       }
     }catch{}
@@ -854,6 +888,7 @@ function renderAdd(){
   }
 
   function renderSearchCard(b){
+    const already = window.__ADDED_PREVIEW_IDS.has(b._previewId);
     return `
       <div class="card">
         <div class="cover">
@@ -863,7 +898,7 @@ function renderAdd(){
           <p class="t">${escapeHtml(b.title || "Sans titre")}</p>
           <p class="a">${escapeHtml(toAuthorsDisplay(b.authors))}</p>
           <div class="actions">
-            <span class="chip" data-action="add" data-id="${escapeHtml(b._previewId)}">➕ Ajouter</span>
+            <span class="chip ${already ? "disabled" : ""}" data-action="add" data-id="${escapeHtml(b._previewId)}">${already ? "Ajouté ✅" : "➕ Ajouter"}</span>
             <a class="chip" href="${amazonSearchUrl({title:b.title,authors:b.authors})}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Amazon</a>
           </div>
         </div>
@@ -871,11 +906,13 @@ function renderAdd(){
     `;
   }
 
-  function bindSearchButtons(container, formatPickEl){
+  function bindSearchButtons(container, formatPickEl, statusEl){
     container.querySelectorAll('[data-action="add"]').forEach(el=>{
       el.addEventListener("click", async (e)=>{
         e.stopPropagation();
         const pid = el.dataset.id;
+        if(window.__ADDED_PREVIEW_IDS.has(pid)) return;
+
         const meta = window.__SEARCH_CACHE.get(pid);
         if(!meta) return;
 
@@ -888,8 +925,13 @@ function renderAdd(){
         });
 
         await window.BBS_CLOUD.upsertBook(book);
-        await window.BBS_CLOUD.reloadBooks();
-        status.textContent = "Ajouté ✅";
+        await window.BBS_CLOUD.reloadBooks({ silent:true }); // ✅ ne reset pas la page
+
+        window.__ADDED_PREVIEW_IDS.add(pid);
+        el.textContent = "Ajouté ✅";
+        el.classList.add("disabled");
+
+        statusEl.textContent = "Ajouté ✅ (tu peux continuer)";
       });
     });
   }
@@ -914,17 +956,16 @@ function renderAdd(){
       coverUrl: ""
     });
 
-    // Upload cover to Storage
     const upload = await window.BBS_CLOUD.uploadCover(book.id, coverFile);
     if(!upload?.url){
-      alert("Erreur upload couverture (Storage). Vérifie que Storage est activé + règles OK.");
+      alert("Erreur upload couverture (Storage). Vérifie Storage + règles.");
       return;
     }
     book.coverUrl = upload.url;
     book.coverStoragePath = upload.path;
 
     await window.BBS_CLOUD.upsertBook(book);
-    await window.BBS_CLOUD.reloadBooks();
+    await window.BBS_CLOUD.reloadBooks({ silent:true }); // ✅ pas de reset de page
 
     root.querySelector("#resetManual").click();
     alert("Ajouté ✅");
@@ -943,7 +984,7 @@ function makeBook({title, authors, volumeNumber, format, coverUrl}){
     title: title || "Sans titre",
     authors: authors || [],
     volumeNumber: volumeNumber || "",
-    format: format || "ebook",     // ebook | wishlist
+    format: format || "ebook",     // ebook | wishlist | wattpad
     acquired: false,               // true => PAL
     read: false,                   // true => Livres Lus
     coverUrl: coverUrl || "",
@@ -954,7 +995,7 @@ function makeBook({title, authors, volumeNumber, format, coverUrl}){
 }
 
 /* ===== Cards actions ===== */
-function bindCards(container){
+function bindCards(container, obtainLabelOverride){
   container.querySelectorAll('[data-action="obtain"]').forEach(el=>{
     el.addEventListener("click", async (e)=>{
       e.stopPropagation();
@@ -1035,7 +1076,6 @@ function openModal(id){
       return;
     }
 
-    // supprime l'ancienne cover storage si existante
     if(book.coverStoragePath && book.coverStoragePath !== upload.path){
       await window.BBS_CLOUD.deleteCoverByPath(book.coverStoragePath);
     }
@@ -1093,15 +1133,18 @@ async function searchGoogleBooks(query){
   const items = data.items || [];
   const out = [];
   window.__SEARCH_CACHE = window.__SEARCH_CACHE || new Map();
+  window.__ADDED_PREVIEW_IDS = window.__ADDED_PREVIEW_IDS || new Set();
+
   for(const it of items){
     const v = it.volumeInfo || {};
+    const previewId = uid();
     const meta = {
-      _previewId: uid(),
+      _previewId: previewId,
       title: v.title || "",
       authors: v.authors || [],
       coverUrl: normalizeCover(pickGoogleCover(v.imageLinks))
     };
-    window.__SEARCH_CACHE.set(meta._previewId, meta);
+    window.__SEARCH_CACHE.set(previewId, meta);
     out.push(meta);
   }
   return out;
@@ -1126,20 +1169,23 @@ async function searchOpenLibrary(query){
   const docs = data.docs || [];
   const out = [];
   window.__SEARCH_CACHE = window.__SEARCH_CACHE || new Map();
+  window.__ADDED_PREVIEW_IDS = window.__ADDED_PREVIEW_IDS || new Set();
+
   for(const d of docs){
+    const previewId = uid();
     const meta = {
-      _previewId: uid(),
+      _previewId: previewId,
       title: d.title || "",
       authors: d.author_name ? d.author_name.slice(0,3) : [],
       coverUrl: d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg` : ""
     };
-    window.__SEARCH_CACHE.set(meta._previewId, meta);
+    window.__SEARCH_CACHE.set(previewId, meta);
     out.push(meta);
   }
   return out;
 }
 
-// expose global bridges for firebase module
+// expose globals for firebase module
 Object.defineProperty(window, "booksCache", { get(){ return booksCache; }, set(v){ booksCache = Array.isArray(v) ? v : []; } });
 Object.defineProperty(window, "authUser", { get(){ return authUser; }, set(v){ authUser = v; } });
 
@@ -1181,7 +1227,7 @@ show("login");
     deleteObject
   } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-storage.js";
 
-  // ✅ TON CONFIG (corrigé + complet)
+  // ✅ TON CONFIG
   const firebaseConfig = {
     apiKey: "AIzaSyBP7qg9V9fZE6tdAJN93yXX7tRyij75EUU",
     authDomain: "booksbysiana.firebaseapp.com",
@@ -1195,12 +1241,10 @@ show("login");
   const auth = getAuth(app);
   const db = getFirestore(app);
 
-  // ✅ Storage : on force le bucket au format gs://...
+  // ✅ Storage : on force gs://bucket
   const storage = getStorage(app, `gs://${firebaseConfig.storageBucket}`);
 
-  // Offline Firestore (bonus)
   try { await enableIndexedDbPersistence(db); } catch {}
-
   await setPersistence(auth, browserLocalPersistence);
 
   const SALT = "BBS_2025";
@@ -1234,13 +1278,20 @@ show("login");
     return books;
   }
 
-  async function reloadBooks(){
+  // ✅ reloadBooks avec mode silent pour éviter reset de la page "Ajouter"
+  async function reloadBooks(opts = {}){
+    const { silent = false } = opts;
+
     const cloud = await loadBooks();
     window.booksCache = cloud;
+
     try{
       localStorage.setItem("bbs_local_cache_v1", JSON.stringify({ books: cloud, savedAt: Date.now() }));
     }catch{}
-    window.rerenderCurrent?.();
+
+    if(!silent){
+      window.rerenderCurrent?.();
+    }
   }
 
   async function upsertBook(book){
@@ -1257,13 +1308,56 @@ show("login");
     await deleteDoc(doc(db, `users/${uid}/books/${book.id}`));
   }
 
+  // ✅ Compression images avant upload
+  async function compressImageToJpegBlob(file, maxWidth = 900, quality = 0.82) {
+    let bitmap;
+    if ("createImageBitmap" in window) {
+      bitmap = await createImageBitmap(file);
+    } else {
+      bitmap = await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = URL.createObjectURL(file);
+      });
+    }
+
+    const srcW = bitmap.width;
+    const srcH = bitmap.height;
+
+    const scale = Math.min(1, maxWidth / srcW);
+    const dstW = Math.max(1, Math.round(srcW * scale));
+    const dstH = Math.max(1, Math.round(srcH * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = dstW;
+    canvas.height = dstH;
+
+    const ctx = canvas.getContext("2d", { alpha: false });
+    ctx.drawImage(bitmap, 0, 0, dstW, dstH);
+
+    if (bitmap && typeof bitmap.close === "function") bitmap.close();
+
+    const blob = await new Promise((resolve) => {
+      canvas.toBlob((b) => resolve(b), "image/jpeg", quality);
+    });
+
+    if (!blob) throw new Error("Compression impossible (toBlob a échoué).");
+    return blob;
+  }
+
   async function uploadCover(bookId, file){
     const uid = auth.currentUser.uid;
     const path = `users/${uid}/covers/${bookId}.jpg`;
-
-    // Upload direct (simple et fiable)
     const r = ref(storage, path);
-    await uploadBytes(r, file);
+
+    const jpegBlob = await compressImageToJpegBlob(file, 900, 0.82);
+
+    await uploadBytes(r, jpegBlob, {
+      contentType: "image/jpeg",
+      cacheControl: "public,max-age=31536000"
+    });
+
     const url = await getDownloadURL(r);
     return { url, path };
   }
