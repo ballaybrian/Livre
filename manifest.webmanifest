@@ -1,0 +1,14 @@
+{
+  "name": "Books By Siana",
+  "short_name": "BBS",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#50514D",
+  "theme_color": "#F2B8C6",
+  "description": "Gestion de livres: Ebook, Wishlist, Wattpad, PAL et Livres lus.",
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

@@ -6,6 +6,13 @@
   <meta name="theme-color" content="#F2B8C6" />
   <title>Books By Siana</title>
 
+  <!-- ✅ PWA -->
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icon-192.png">
+  <link rel="apple-touch-icon" href="./icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
   <style>
     :root{
       --bg:#50514D;
@@ -435,15 +442,6 @@ function getStats(){
   };
 }
 
-function loadLocalCache(){
-  try{
-    const raw = localStorage.getItem(LOCAL_FALLBACK_KEY);
-    if(!raw) return [];
-    const p = JSON.parse(raw);
-    return Array.isArray(p?.books) ? p.books : [];
-  }catch{ return []; }
-}
-
 /* =========================
    UI RENDER
    ========================= */
@@ -462,7 +460,7 @@ function renderLogin(){
           <button class="btn" id="lgBtn">Connexion</button>
         </div>
         <div class="hint" id="lgMsg"></div>
-        <div class="hint">Astuce : la synchro se fait automatiquement via Firestore/Storage (cloud).</div>
+        <div class="hint">Synchro cloud via Firestore/Storage.</div>
       </div>
     </div>
   `;
@@ -503,7 +501,11 @@ function renderHome(){
           <div class="home-btn" id="goWattpad"><div class="badge">${s.wattpad}</div>${svgPen("")}<b>Wattpad</b></div>
           <div class="home-btn" id="goPAL"><div class="badge">${s.pal}</div>${svgOpenBook("")}<b>PAL</b></div>
           <div class="home-btn" id="goRead"><div class="badge">${s.read}</div>${svgClosedBook("")}<b>Livres Lus</b></div>
-          <div class="home-btn" id="goAdd" style="grid-column: 1 / -1;"><div class="badge">+</div><div style="font-size:34px;font-weight:1000;color:var(--pink);line-height:1">+</div><b>Ajouter un livre</b></div>
+          <div class="home-btn" id="goAdd" style="grid-column: 1 / -1;">
+            <div class="badge">+</div>
+            <div style="font-size:34px;font-weight:1000;color:var(--pink);line-height:1">+</div>
+            <b>Ajouter un livre</b>
+          </div>
         </div>
 
         <div class="row" style="justify-content:center; margin-top:12px">
@@ -565,12 +567,12 @@ function renderList(kind){
             <option value="title">Tri : titre</option>
           </select>
         </div>
-        <div class="hint">Quand tu coches <b>${escapeHtml(obtainLabel)}</b>, le livre passe automatiquement dans <b>PAL</b>.</div>
+        <div class="hint">Quand tu coches <b>${escapeHtml(obtainLabel)}</b>, le livre passe dans <b>PAL</b>.</div>
       </div>
       <div id="cards" class="list"></div>
     </div>
   `;
-  root.querySelector("#btnBack").onclick = backToHome;
+  root.querySelector("#btnBack").onclick = ()=>show("home");
 
   const q = root.querySelector("#q");
   const sortSel = root.querySelector("#sort");
@@ -610,7 +612,7 @@ function renderList(kind){
     }
     filtered.sort(sorter[sortSel.value] || sorter.created);
     cards.innerHTML = filtered.length ? filtered.map(renderCard).join("") : `<div class="empty">Aucun livre ici.</div>`;
-    bindCards(cards, obtainLabel);
+    bindCards(cards);
   }
   q.addEventListener("input", apply);
   sortSel.addEventListener("change", apply);
@@ -624,7 +626,7 @@ function renderPAL(){
   root.innerHTML = `
     ${brandCenter("PAL (à lire)")}
     <div class="row" style="justify-content:center; margin-bottom:6px">
-      <button class="btn" id="btnBack">← Retour</button>
+      <button class="btn" onclick="show('home')">← Retour</button>
       <button class="btn" onclick="show('ebooks')">${svgReader("small")} Ebooks</button>
       <button class="btn" onclick="show('wishlist')">${svgHeart("small")} Wishlist</button>
       <button class="btn" onclick="show('wattpad')">${svgPen("small")} Wattpad</button>
@@ -645,8 +647,6 @@ function renderPAL(){
       <div id="cards" class="list"></div>
     </div>
   `;
-
-  root.querySelector("#btnBack").onclick = backToHome;
 
   const q = root.querySelector("#q");
   const sortSel = root.querySelector("#sort");
@@ -700,7 +700,7 @@ function renderRead(){
   root.innerHTML = `
     ${brandCenter("Livres Lus")}
     <div class="row" style="justify-content:center; margin-bottom:6px">
-      <button class="btn" id="btnBack">← Retour</button>
+      <button class="btn" onclick="show('home')">← Retour</button>
       <button class="btn" onclick="show('pal')">${svgOpenBook("small")} PAL</button>
       <button class="btn danger" id="clear">Vider</button>
     </div>
@@ -720,8 +720,6 @@ function renderRead(){
     </div>
   `;
 
-  root.querySelector("#btnBack").onclick = backToHome;
-
   const q = root.querySelector("#q");
   const sortSel = root.querySelector("#sort");
   const cards = root.querySelector("#cards");
@@ -736,7 +734,6 @@ function renderRead(){
     const icon = formatIconFallback(b);
     const coverSrc = b.coverUrl || "";
     const author = toAuthorsDisplay(b.authors);
-    const fmt = formatFormatLabel(b);
     return `
       <div class="card" data-open="${escapeHtml(b.id)}">
         <div class="cover">${coverSrc ? `<img src="${escapeHtml(coverSrc)}" alt="Couverture">` : icon}</div>
@@ -744,7 +741,7 @@ function renderRead(){
           <p class="t">${escapeHtml(b.title || "Sans titre")}</p>
           <p class="a">${escapeHtml(author)}${b.volumeNumber ? " • Tome " + escapeHtml(b.volumeNumber) : ""}</p>
           <div class="actions">
-            <span class="chip">${escapeHtml(fmt)}</span>
+            <span class="chip">${escapeHtml(formatFormatLabel(b))}</span>
             <a class="chip" href="${amazonSearchUrl(b)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Amazon</a>
             <span class="chip danger" data-action="delete" data-id="${escapeHtml(b.id)}">🗑 Supprimer</span>
           </div>
@@ -785,7 +782,7 @@ function renderAdd(){
   root.innerHTML = `
     ${brandCenter("Ajouter")}
     <div class="row" style="justify-content:center; margin-bottom:10px">
-      <button class="btn" id="btnBack">← Retour</button>
+      <button class="btn" onclick="show('home')">← Retour</button>
       <button class="btn" onclick="show('ebooks')">${svgReader("small")} Ebooks</button>
       <button class="btn" onclick="show('wishlist')">${svgHeart("small")} Wishlist</button>
       <button class="btn" onclick="show('wattpad')">${svgPen("small")} Wattpad</button>
@@ -804,7 +801,7 @@ function renderAdd(){
             <option value="wattpad">Wattpad</option>
           </select>
         </div>
-        <div class="hint">Tu peux ajouter plusieurs livres sans que la page se réinitialise.</div>
+        <div class="hint">Tu peux ajouter plusieurs livres d’affilée sans que la page se réinitialise.</div>
       </div>
       <div class="content">
         <div id="searchStatus" class="hint"></div>
@@ -839,9 +836,6 @@ function renderAdd(){
     </div>
   `;
 
-  root.querySelector("#btnBack").onclick = backToHome;
-
-  // Auto search
   const q = root.querySelector("#searchQuery");
   const btn = root.querySelector("#searchBtn");
   const status = root.querySelector("#searchStatus");
@@ -869,7 +863,7 @@ function renderAdd(){
       if(google.length){
         status.textContent = `Résultats (Google Books) : ${google.length}`;
         results.innerHTML = google.map(renderSearchCard).join("");
-        bindSearchButtons(results, formatPick, status);
+        bindSearchButtons(results);
         return;
       }
     }catch{}
@@ -879,7 +873,7 @@ function renderAdd(){
       if(ol.length){
         status.textContent = `Résultats (Open Library) : ${ol.length}`;
         results.innerHTML = ol.map(renderSearchCard).join("");
-        bindSearchButtons(results, formatPick, status);
+        bindSearchButtons(results);
         return;
       }
     }catch{}
@@ -906,7 +900,7 @@ function renderAdd(){
     `;
   }
 
-  function bindSearchButtons(container, formatPickEl, statusEl){
+  function bindSearchButtons(container){
     container.querySelectorAll('[data-action="add"]').forEach(el=>{
       el.addEventListener("click", async (e)=>{
         e.stopPropagation();
@@ -920,18 +914,18 @@ function renderAdd(){
           title: meta.title,
           authors: meta.authors,
           volumeNumber: "",
-          format: formatPickEl.value,
+          format: formatPick.value,
           coverUrl: meta.coverUrl || ""
         });
 
         await window.BBS_CLOUD.upsertBook(book);
-        await window.BBS_CLOUD.reloadBooks({ silent:true }); // ✅ ne reset pas la page
+        await window.BBS_CLOUD.reloadBooks({ silent:true }); // ✅ pas de reset
 
         window.__ADDED_PREVIEW_IDS.add(pid);
         el.textContent = "Ajouté ✅";
         el.classList.add("disabled");
 
-        statusEl.textContent = "Ajouté ✅ (tu peux continuer)";
+        status.textContent = "Ajouté ✅ (tu peux continuer)";
       });
     });
   }
@@ -957,24 +951,19 @@ function renderAdd(){
     });
 
     const upload = await window.BBS_CLOUD.uploadCover(book.id, coverFile);
-    if(!upload?.url){
-      alert("Erreur upload couverture (Storage). Vérifie Storage + règles.");
-      return;
-    }
     book.coverUrl = upload.url;
     book.coverStoragePath = upload.path;
 
     await window.BBS_CLOUD.upsertBook(book);
-    await window.BBS_CLOUD.reloadBooks({ silent:true }); // ✅ pas de reset de page
+    await window.BBS_CLOUD.reloadBooks({ silent:true });
 
-    root.querySelector("#resetManual").click();
-    alert("Ajouté ✅");
-  });
-
-  root.querySelector("#resetManual").addEventListener("click", ()=>{
-    ["mTitle","mAuthor","mVolume"].forEach(id => root.querySelector("#"+id).value = "");
+    root.querySelector("#mTitle").value = "";
+    root.querySelector("#mAuthor").value = "";
+    root.querySelector("#mVolume").value = "";
     root.querySelector("#mFormat").value = "ebook";
     root.querySelector("#mCoverFile").value = "";
+
+    alert("Ajouté ✅");
   });
 }
 
@@ -995,7 +984,7 @@ function makeBook({title, authors, volumeNumber, format, coverUrl}){
 }
 
 /* ===== Cards actions ===== */
-function bindCards(container, obtainLabelOverride){
+function bindCards(container){
   container.querySelectorAll('[data-action="obtain"]').forEach(el=>{
     el.addEventListener("click", async (e)=>{
       e.stopPropagation();
@@ -1071,10 +1060,6 @@ function openModal(id){
     if(!file) return;
 
     const upload = await window.BBS_CLOUD.uploadCover(book.id, file);
-    if(!upload?.url){
-      alert("Erreur upload couverture (Storage). Vérifie Storage + règles.");
-      return;
-    }
 
     if(book.coverStoragePath && book.coverStoragePath !== upload.path){
       await window.BBS_CLOUD.deleteCoverByPath(book.coverStoragePath);
@@ -1227,7 +1212,6 @@ show("login");
     deleteObject
   } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-storage.js";
 
-  // ✅ TON CONFIG
   const firebaseConfig = {
     apiKey: "AIzaSyBP7qg9V9fZE6tdAJN93yXX7tRyij75EUU",
     authDomain: "booksbysiana.firebaseapp.com",
@@ -1240,8 +1224,6 @@ show("login");
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
-
-  // ✅ Storage : on force gs://bucket
   const storage = getStorage(app, `gs://${firebaseConfig.storageBucket}`);
 
   try { await enableIndexedDbPersistence(db); } catch {}
@@ -1278,7 +1260,6 @@ show("login");
     return books;
   }
 
-  // ✅ reloadBooks avec mode silent pour éviter reset de la page "Ajouter"
   async function reloadBooks(opts = {}){
     const { silent = false } = opts;
 
@@ -1308,7 +1289,6 @@ show("login");
     await deleteDoc(doc(db, `users/${uid}/books/${book.id}`));
   }
 
-  // ✅ Compression images avant upload
   async function compressImageToJpegBlob(file, maxWidth = 900, quality = 0.82) {
     let bitmap;
     if ("createImageBitmap" in window) {
@@ -1387,18 +1367,24 @@ show("login");
       await reloadBooks();
       window.show?.("home");
     }else{
-      const fallback = (function(){
-        try{
-          const raw = localStorage.getItem("bbs_local_cache_v1");
-          if(!raw) return [];
-          const p = JSON.parse(raw);
-          return Array.isArray(p?.books) ? p.books : [];
-        }catch{ return []; }
-      })();
-      window.booksCache = fallback;
+      // fallback local (optionnel)
+      window.booksCache = [];
       window.show?.("login");
     }
   });
+</script>
+
+<!-- ✅ Service worker registration -->
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", async () => {
+      try {
+        await navigator.serviceWorker.register("./service-worker.js", { scope: "./" });
+      } catch (e) {
+        console.warn("SW registration failed", e);
+      }
+    });
+  }
 </script>
 </body>
 </html>
